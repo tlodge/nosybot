@@ -1,14 +1,17 @@
 import express from 'express'
+import bodyParser from 'body-parser'
 import {SerialPort} from 'serialport'
 import {deconstruct,reconstruct} from './GCODE/module.js'
 import * as tf from '@tensorflow/tfjs-node'
 import fs from 'fs'
 
 const app = express();
+app.use(bodyParser.json({limit:'25mb'}))
+
 const PORT = 8090;
 let model;
 
-const weights = 'http://127.0.0.1:8080/model.json';
+const weights = 'http://127.0.0.1:8090/model.json';
 const names = ['contacts', 'isettings', 'imessage', 'whatsapp'];
 let modelWidth, modelHeight;
 
@@ -16,33 +19,37 @@ tf.loadGraphModel(weights).then(m => {
     model=m;
     [modelWidth, modelHeight] = model.inputs[0].shape.slice(1, 3);
     console.log(modelWidth, modelHeight)
-    predict('./phone.png')
+    
 });
 
 
-const predict = (path)=>{
+const predict =  async (buf)=>{
     
-    const imageBuffer = fs.readFileSync(path);
-    const tfimage = tf.node.decodeImage(imageBuffer);
-      
+    var filename  = `images/phone_${Date.now()}.jpg`;
+	
+	fs.writeFileSync(filename, buf);
+    //const imageBuffer = fs.readFileSync(path);
+    const tfimage = tf.node.decodeImage(buf);
+    
     const input = tf.tidy(() => {    
         return tf.image.resizeBilinear(tfimage, [modelWidth, modelHeight]).div(255.0).expandDims(0);
     });
   
-    model.executeAsync(input).then(res => {
+    const res = await model.executeAsync(input)
+    //.then(res => {
         const [boxes, scores, classes, valid_detections] = res;    
         const boxes_data = boxes.dataSync();
         const scores_data = scores.dataSync();
         const classes_data = classes.dataSync();
         const valid_detections_data = valid_detections.dataSync()[0];
-        console.log(valid_detections_data);
         tf.dispose(res)
-    });
+        return [valid_detections_data,boxes_data,scores_data,classes_data]; 
+    //});
 }
 
 const COMMANDS = ["G91","G28 X0","G28 Y0","G28 Z0","G00 Z20 F20000","G0 X80 F20000"];
 const HOME = ["G91","G28 X0","G28 Y0","G28 Z0"];
-const PICTURE = ["G91","G0 X0 F5000", "G0 Y0 F20000", "G0 Z150 F20000", "G4 S1"];
+const PICTURE = ["G91","G0 X0 F5000", "G0 Y0 F20000", "G0 Z100 F20000", "G4 S1"];
 const SWIPE = ["G91","G0 X80 F20000","G0 Z10 F20000","G0 X-10 F6000","G0 Z30 F10000","G0 X80 F10000","G0 Z10 F10000","G0 X-10 F6000","G0 Z30 F10000" ];
 const POS =     ["G0 X-15",
                 "G0 Z11 F20000",
@@ -76,7 +83,6 @@ const POS =     ["G0 X-15",
 
 let printPosition = 1;
 let sp = undefined;
-
 
 const print = (commands)=>{
     sp = new SerialPort({
@@ -150,6 +156,33 @@ app.use(express.static('public'));
 
 app.get('/', (req,res)=>{
     res.send("ROBOT DATA CAPTURER")
+});
+
+app.get('/picture', (req, res)=>{
+    print([...HOME,...PICTURE])
+});
+
+app.post('/predict', async (req, res)=>{
+    console.log("seen a predict");
+    const image = req.body.image;
+	const data = image.replace(/^data:image\/\w+;base64,/, "");
+	const buf = new Buffer(data, 'base64');
+	const [num, boxes, scores, classes] = await predict(buf);   
+    const predictions = [];
+
+    for (let i = 0; i < num; ++i){
+        let [x1, y1, x2, y2] = boxes.slice(i * 4, (i + 1) * 4);
+      
+        x1 *= 640;
+        x2 *= 640;
+        y1 *= 360;
+        y2 *= 360;
+        const width = x2 - x1;
+        const height = y2 - y1; 
+        predictions.push({x:x1, y:y1, width, height, class:classes[i], score:scores[i].toFixed(2)});
+    }
+    console.log(JSON.stringify(predictions,null,4));
+    res.send(predictions);
 });
 
 app.get('/pos', (req,res)=>{

@@ -3,11 +3,12 @@ import ReactDOM from "react-dom";
 import MagicDropzone from "react-magic-dropzone";
 import {useCamera} from './hooks/useCamera';
 import "./styles.css";
-const tf = require('@tensorflow/tfjs');
+import request from 'superagent';
+//const tf = require('@tensorflow/tfjs');
 
 //const weights = '/web_model/model.json';
-const weights = 'http://127.0.0.1:8080/model.json';
-const names = ['contacts', 'isettings', 'imessage', 'whatsapp']
+//const weights = 'http://127.0.0.1:8080/model.json';
+//const names = ['contacts', 'isettings', 'imessage', 'whatsapp']
 let videoPlaying = false;
 
 let _lastRender = Date.now();
@@ -29,13 +30,13 @@ const  App = ()=>{
   let valid_detections_data;
 
   useEffect(()=>{
-    tf.loadGraphModel(weights).then(model => {
+    /*tf.loadGraphModel(weights).then(model => {
       setModel(model);
-    });
+    });*/
   },[]);
 
 
-  const renderPredictions = (c)=>{
+  /*const renderPredictions = (c)=>{
     const font = "16px sans-serif";
     ctx.font = font;
     ctx.textBaseline = "top";
@@ -57,9 +58,9 @@ const  App = ()=>{
         ctx.strokeRect(x1, y1, width, height);
         
         // Draw the label background.
-        ctx.fillStyle = "#00FFFF";
-        const textWidth = ctx.measureText(klass /*+ ":" + score*/).width;
-        const textHeight = parseInt(font, 10); // base 10
+        ctx.fillStyle = "#00FFFF";*/
+        //const textWidth = ctx.measureText(klass /*+ ":" + score*/).width;
+        /*const textHeight = parseInt(font, 10); // base 10
         ctx.fillRect(x1, y1, textWidth + 4, textHeight + 4);
 
       }
@@ -77,12 +78,12 @@ const  App = ()=>{
         
       }
   }
-
+*/
   const updateCanvas = ()=>{
     try{
       //if (ctx){
         
-        let [modelWidth, modelHeight] = model.inputs[0].shape.slice(1, 3);
+        //let [modelWidth, modelHeight] = model.inputs[0].shape.slice(1, 3);
         const c = canvasRef.current;
         if (!c){
           return
@@ -100,7 +101,7 @@ const  App = ()=>{
      
         _lastRender = Date.now();
 
-        const input = tf.tidy(() => {
+        /*const input = tf.tidy(() => {
            return tf.image.resizeBilinear(tf.browser.fromPixels(c), [modelWidth, modelHeight]).div(255.0).expandDims(0);
         });
 
@@ -120,7 +121,7 @@ const  App = ()=>{
             tf.dispose(res)
             renderPredictions(c);
             
-        });
+        });*/
        
     }catch(err){
       console.log(err);
@@ -140,25 +141,54 @@ const  App = ()=>{
     }
   }, [video, canvasRef]);*/
 
-  return (
+  const snap = ()=>{
+    
+    const c = canvasRef.current;
+    const ctx = c.getContext("2d");
+		ctx.drawImage(video, 0, 0, 640, 360);
+    const dataURL = c.toDataURL("image/jpeg");
+   
+    request
+     		.post('/predict')
+     		.set('content-Type', 'application/json')
+        .send({image:dataURL})
+     		.end(function(err, res){
+		        if (err){
+		          console.log(err);
+		        }else{
+		          console.log(res.body);
+              res.body.forEach((prediction)=>{
+                const {x,y,width,score,height} = prediction;
+                ctx.fillStyle = "#00FFFF";
+                // Draw the bounding box.
+                ctx.strokeStyle = "#00FFFF";
+                ctx.lineWidth = 4;
+                ctx.strokeRect(x, y, width, height);
+              })
+		        }
+		    });
+  }
+
+  return (<div>
       <div> {/*className="Dropzone-page">*/}
 
           <video ref={videoRef} style={{
                 opacity: 1, /*videoopacity,*/
-                position:"absolute",
-                marginLeft: "auto",
+                /*position:"absolute",*/
+                /*marginLeft: "auto",
                 marginRight: "auto",
                 left: 0,
                 right: 0,
                 textAlign: "center",
-                zindex: 9,
+                zindex: 9,*/
                 width: 640,
-                height: 480,
-                //display:"none"
+                height: 360,
+               
               }}
             />
-
-        <canvas ref={canvasRef} id="canvas" width="640" height="480" />
+        
+        <canvas ref={canvasRef} id="canvas" width="640" height="360" style={{/*display:"none"*/}} />
+        
         {/* model ? (
           <MagicDropzone
             className="Dropzone"
@@ -183,6 +213,8 @@ const  App = ()=>{
           <div className="Dropzone">Loading model...</div>
           
         )*/}
+      </div>
+      <button onClick={snap}>take a picture</button>
       </div>
     );
   

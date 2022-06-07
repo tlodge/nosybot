@@ -11,8 +11,10 @@
     "react": "^18.1.0",
     "react-dom": "^18.1.0",
     "react-magic-dropzone": "1.0.1",
-    "react-scripts": "2.0.3"
+    "react-scripts": "2.0.3",
+    "superagent": "^7.1.6"
   },
+  "proxy": "http://127.0.0.1:8090",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
