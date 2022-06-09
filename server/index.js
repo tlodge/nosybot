@@ -49,7 +49,7 @@ const predict =  async (buf)=>{
 
 const COMMANDS = ["G91","G28 X0","G28 Y0","G28 Z0","G00 Z20 F20000","G0 X80 F20000"];
 const HOME = ["G91","G28 X0","G28 Y0","G28 Z0"];
-const PICTURE = ["G91","G0 X0 F5000", "G0 Y0 F20000", "G0 Z100 F20000", "G4 S1"];
+const PICTURE = ["G91","G0 X0 F5000", "G0 Y0 F20000", "G0 Z130 F20000", "G4 S1"];
 const SWIPE = ["G91","G0 X80 F20000","G0 Z10 F20000","G0 X-10 F6000","G0 Z30 F10000","G0 X80 F10000","G0 Z10 F10000","G0 X-10 F6000","G0 Z30 F10000" ];
 const POS =     ["G0 X-15",
                 "G0 Z11 F20000",
@@ -85,43 +85,47 @@ let printPosition = 1;
 let sp = undefined;
 
 const print = (commands)=>{
-    sp = new SerialPort({
-        path: '/dev/ttyUSB0',
-        autoOpen: false,
-        baudRate : 115200
-    });
-    printPosition = 1;
-   
-    const printCommands = deconstruct(commands.reduce((acc,item)=>{
-        return `${acc}\n${item}`
-    },""));
 
-    const printLine = (command)=>{
-        printerCommand(command);
-    }
+    return new Promise((resolve,reject)=>{
+        sp = new SerialPort({
+            path: '/dev/ttyUSB0',
+            autoOpen: false,
+            baudRate : 115200
+        });
+        printPosition = 1;
+    
+        const printCommands = deconstruct(commands.reduce((acc,item)=>{
+            return `${acc}\n${item}`
+        },""));
 
-    console.log(printCommands);
-   
-    sp.open(()=>{
-        printerCommand(reconstruct(printCommands[0]));
-        sp.on('data', function(data) {
-            if(data.indexOf("ok") != -1 || data == "start\r"){
-                console.log(data.toString())
-                if (printPosition <= printCommands.length){
-                    setTimeout(()=>{
-                        printLine(reconstruct(printCommands[printPosition]));
-                    },50);
-                }else{
-                    sp.close();
-                }
-            } else {
-                console.log("Nope")
-            }      
-         });
-    });
-    //open serial port
-    sp.on("open", function () {
-        console.log("Serial Port is open.");
+        const printLine = (command)=>{
+            printerCommand(command);
+        }
+
+        console.log(printCommands);
+    
+        sp.open(()=>{
+            printerCommand(reconstruct(printCommands[0]));
+            sp.on('data', function(data) {
+                if(data.indexOf("ok") != -1 || data == "start\r"){
+                    console.log(data.toString())
+                    if (printPosition <= printCommands.length){
+                        setTimeout(()=>{
+                            printLine(reconstruct(printCommands[printPosition]));
+                        },50);
+                    }else{
+                        sp.close();
+                        resolve();
+                    }
+                } else {
+                    console.log("Nope")
+                }      
+            });
+        });
+        //open serial port
+        sp.on("open", function () {
+            console.log("Serial Port is open.");
+        });
     });
 }
 
@@ -185,18 +189,25 @@ app.post('/predict', async (req, res)=>{
     res.send(predictions);
 });
 
-app.get('/pos', (req,res)=>{
-    print([...HOME,...POS,...HOME])
+app.get('/pos', async (req,res)=>{
+    await print([...HOME,...POS,...HOME])
     res.send("Thanks!")
 });
 
-app.get('/home', (req,res)=>{
-    print(HOME)
+app.get('/goto', async (req, res)=>{
+    const {x,y} = req.query;
+    await print([...HOME, `G0 X${x} F20000`,`G0 Y${y} F20000`,"G0 Z5 F20000"]);
+    //,"G0 Z9 F20000","G0 Z15 F20000",...PICTURE ])
     res.send("Thanks!")
 });
 
-app.get('/swipe', (req,res)=>{
-    print([ ...HOME,
+app.get('/home', async (req,res)=>{
+    await print(HOME)
+    res.send("Thanks!")
+});
+
+app.get('/swipe', async (req,res)=>{
+    await print([ ...HOME,
             ...PICTURE,
             ...SWIPE,
             ...PICTURE,
@@ -206,9 +217,9 @@ app.get('/swipe', (req,res)=>{
     res.send("Thanks!")
 });
 
-app.get('/print', (req,res)=>{
+app.get('/print', async (req,res)=>{
     print([...PICTURE])
-    res.send("Thanks!")
+    await res.send("Thanks!")
 });
 
 app.listen(PORT, ()=>{
