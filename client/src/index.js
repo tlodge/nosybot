@@ -223,7 +223,7 @@ const  App = ()=>{
     let index = 0;
     
 
-    index = 0;
+    /*index = 0;
     for (const xline of xlines){
       const [mto, ...rest] = xline;
       ctx.beginPath();
@@ -260,7 +260,7 @@ const  App = ()=>{
           ctx.stroke();
       }
       index+=1;
-    }
+    }*/
   }
 
   const generatecoords = (ctx)=>{
@@ -452,7 +452,7 @@ const  App = ()=>{
     grid(ctx)
     const dataURL = c.toDataURL("image/jpeg");
    
-    /*request
+    request
      		.post('/predict')
      		.set('content-Type', 'application/json')
         .send({image:dataURL})
@@ -486,7 +486,7 @@ const  App = ()=>{
                 
               }
 		        }
-		    });*/
+		    });
   }
 
   return (<div>

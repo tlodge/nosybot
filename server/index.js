@@ -197,7 +197,7 @@ app.get('/pos', async (req,res)=>{
 
 app.get('/goto', async (req, res)=>{
     const {x,y} = req.query;
-    await print([...HOME, `G0 X${x} F20000`,`G0 Y${y} F20000`,"G0 Z15 F10000","G0 Z6 F20000","G4 P80",...NEWPICTURE]);
+    await print([...HOME, `G0 X${x} F20000`,`G0 Y${y} F20000`,"G0 Z15 F10000","G0 Z7 F20000","G4 P80",...NEWPICTURE]);
     //,"G0 Z9 F20000","G0 Z15 F20000",...PICTURE ])
     res.send("Thanks!")
 });
