@@ -47,8 +47,8 @@ const predict =  async (buf)=>{
     //});
 }
 
-const COMMANDS = ["G91","G28 X0","G28 Y0","G28 Z0","G00 Z20 F20000","G0 X80 F20000"];
-const HOME = ["G91","G28 X0","G28 Y0","G28 Z0"];
+const COMMANDS = ["G90","G28 X0","G28 Y0","G28 Z0","G00 Z20 F20000","G0 X80 F20000"];
+const HOME = ["G90","G28 X0","G28 Y0","G28 Z0"];
 const PICTURE = ["G91","G0 X0 F5000", "G0 Y0 F20000", "G0 Z145 F20000", "G4 S1"];
 const NEWPICTURE = ["G0 Z139 F5000","G0 X0 F5000", "G0 Y0 F5000"];
 const SWIPE = ["G91","G0 X80 F20000","G0 Z10 F20000","G0 X-10 F6000","G0 Z30 F10000","G0 X80 F10000","G0 Z10 F10000","G0 X-10 F6000","G0 Z30 F10000" ];
@@ -87,39 +87,47 @@ let sp = undefined;
 
 const print = (commands)=>{
 
-    return new Promise((resolve,reject)=>{
+   
         sp = new SerialPort({
             path: '/dev/ttyUSB0',
             autoOpen: false,
             baudRate : 115200
         });
-        printPosition = 1;
+        printPosition = 0;
     
         const printCommands = deconstruct(commands.reduce((acc,item)=>{
             return `${acc}\n${item}`
         },""));
 
+        console.log("ok print comamnds", printCommands);
         const printLine = (command)=>{
-            printerCommand(command);
+            if (command){
+                console.log("cailling", command)
+                printerCommand(command);
+            }else{
+                printPosition +=1;
+            }
         }
 
-        console.log(printCommands);
     
         sp.open(()=>{
             printerCommand(reconstruct(printCommands[0]));
             sp.on('data', function(data) {
+                
                 if(data.indexOf("ok") != -1 || data == "start\r"){
                     console.log(data.toString())
-                    if (printPosition <= printCommands.length){
+                    printPosition += 1;
+                    if (printPosition < printCommands.length){
                         setTimeout(()=>{
                             printLine(reconstruct(printCommands[printPosition]));
                         },50);
                     }else{
+                        console.log("closed onnecton!");
                         sp.close();
-                        resolve();
+                        //resolve();
                     }
                 } else {
-                    console.log("Nope")
+                    console.log("Nope", data.toString())
                 }      
             });
         });
@@ -127,7 +135,7 @@ const print = (commands)=>{
         sp.on("open", function () {
             console.log("Serial Port is open.");
         });
-    });
+    
 }
 
 
@@ -143,7 +151,7 @@ function printerCommand(comm){
     //console.log((printPosition + 1) + " / " + printCommands.length + ": " + comm);
 
     sp.write(comm + "\n", function(err, results) {
-
+        console.log("results", err, results);
         if(err){
             console.log(">>>ERR");
             console.log(err);
@@ -151,7 +159,8 @@ function printerCommand(comm){
         }
 
         if(comm !== "M105"){
-            printPosition += 1;
+            
+            //printPosition += 1;
         }
 
     });
@@ -161,6 +170,19 @@ app.use(express.static('public'));
 
 app.get('/', (req,res)=>{
     res.send("ROBOT DATA CAPTURER")
+});
+
+app.get('/test', (req, res)=>{
+    const zs = [30,30,30, 30,30,30,30,30,30,30,30,10]
+    const xs = [50,0,40, 10,0,20,20,20,50,30,10,-60]
+    const ys = [50,10,40,20,0,-20,-40,10,20,40,20,-85]
+    const coords = [];
+
+    for (let i = 0; i < xs.length; i++){
+        console.log(`G1 Z${i % 2 == 0 ? 30: 50} X${xs[i]} Y${ys[i]} F10000`)
+        coords.push(`G1 Z${zs[i]} X${xs[i]} Y${ys[i]} F10000`);
+    }
+    print(["G90",...coords]);
 });
 
 app.get('/picture', (req, res)=>{
