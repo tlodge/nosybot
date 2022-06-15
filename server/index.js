@@ -50,7 +50,7 @@ const predict =  async (buf)=>{
 const COMMANDS = ["G90","G28 X0","G28 Y0","G28 Z0","G00 Z20 F20000","G0 X80 F20000"];
 const HOME = ["G90","G28 X0","G28 Y0","G28 Z0"];
 const PICTURE = ["G91","G0 X0 F5000", "G0 Y0 F20000", "G0 Z145 F20000", "G4 S1"];
-const NEWPICTURE = ["G0 Z139 F5000","G0 X0 F5000", "G0 Y0 F5000"];
+const NEWPICTURE = ["G90","G0 Z139 F5000","G0 X0 F5000", "G0 Y0 F5000"];
 const SWIPE = ["G91","G0 X80 F20000","G0 Z10 F20000","G0 X-10 F6000","G0 Z30 F10000","G0 X80 F10000","G0 Z10 F10000","G0 X-10 F6000","G0 Z30 F10000" ];
 const POS =     ["G0 X-15",
                 "G0 Z11 F20000",
@@ -186,7 +186,7 @@ app.get('/test', (req, res)=>{
 });
 
 app.get('/picture', (req, res)=>{
-    print([...HOME,...PICTURE])
+    print(NEWPICTURE)
 });
 
 app.post('/predict', async (req, res)=>{
