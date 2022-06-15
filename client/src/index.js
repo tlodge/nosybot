@@ -394,7 +394,7 @@ const  App = ()=>{
 
     const rowamount = (rowIndex, colIndex)=>{
       if (colIndex < (81/2)){
-        return 24;
+       return 24;
       }
       return 22;
     }
