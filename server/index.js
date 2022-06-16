@@ -50,7 +50,8 @@ const predict =  async (buf)=>{
 const COMMANDS = ["G90","G28 X0","G28 Y0","G28 Z0","G00 Z20 F20000","G0 X80 F20000"];
 const HOME = ["G90","G28 X0","G28 Y0","G28 Z0"];
 const PICTURE = ["G91","G0 X0 F5000", "G0 Y0 F20000", "G0 Z145 F20000", "G4 S1"];
-const NEWPICTURE = ["G1 Z139 F5000","G1 X1 F5000", "G1 Y1 F5000"];
+//const NEWPICTURE = ["G1 Z139 F5000","G1 X1 F5000", "G1 Y1 F5000"];
+const NEWPICTURE = ["G1 Z149 F5000","G1 X1 F5000", "G1 Y1 F5000"];
 const SWIPE = ["G91","G0 X80 F20000","G0 Z10 F20000","G0 X-10 F6000","G0 Z30 F10000","G0 X80 F10000","G0 Z10 F10000","G0 X-10 F6000","G0 Z30 F10000" ];
 const CLOSEAPP =["G90","G1 Z20 X-20 Y55 F8000", "G1 Z9 X-20 Y55 F8000","G1 Z9 X-20 Y-85 F20000","G1 Z20 F10000"];
 
@@ -175,16 +176,27 @@ app.get('/', (req,res)=>{
 });
 
 app.get('/test', (req, res)=>{
-    const zs = [8,8,20]
-    const xs = [-20,-20, -20]
-    const ys = [60,10,20]
+   
     const coords = [];
 
-    /*for (let i = 0; i < xs.length; i++){
-        console.log(`G1 Z${i % 2 == 0 ? 30: 50} X${xs[i]} Y${ys[i]} F3000`)
-        coords.push(`G1 Z${zs[i]} X${xs[i]} Y${ys[i]} F3000`);
+    /*for (let i = 0; i < 5; i++){
+        
+        coords.push(`G1 Z40 X${i*-10} Y0 F1000`,
+                    `G1 Z35 X${i*-10} Y0 F1000`, 
+                    `G1 Z40 X${i*-10} Y0 F1000`,
+                    `G1 Z40 X${-10 + (i*-10)} Y0 F1000`
+                    );
     }*/
-    print(["G90","G1 Z20 X-20 Y61 F8000", "G1 Z9 X-20 Y61 F8000","G1 Z9 X-20 Y-40 F5000","G1 Z20 F10000"]);
+
+    for (let i = 1; i < 2; i++){
+        
+        coords.push(`G1 Z40 X20 Y${0}  F1000`,
+                    `G1 Z35 X20 Y${0}  F1000`, 
+                    //`G1 Z40 X0 Y${i*90}  F1000`,
+                    //`G1 Z40 X0 Y${10 + (i*10)}  F1000`
+                    );
+    }
+    print([...HOME,"G90",...coords]);
 });
 
 app.get('/picture', (req, res)=>{
@@ -221,8 +233,19 @@ app.get('/pos', async (req,res)=>{
 
 app.get('/goto', async (req, res)=>{
     const {x,y} = req.query;
-    await print(["G90", `G1 X${x} Y${y} Z15 F10000`,`G1 Z7 F20000`,`G4 P80`,...NEWPICTURE, ...CLOSEAPP, ...NEWPICTURE]);
+    await print(["G90", `G1 X${x} Y${y} Z15 F10000`,`G1 Z9 F20000`,`G4 P80`,...NEWPICTURE]);
+    //, ...CLOSEAPP, ...NEWPICTURE]);
     //,"G0 Z9 F20000","G0 Z15 F20000",...PICTURE ])
+    /*const coords = [];
+    for (let i = 1; i < 2; i++){
+        
+        coords.push(`G1 Z50 X${x} Y${x}  F1000`,
+                    `G1 Z40 X${x} Y${y}  F1000`, 
+                    //`G1 Z40 X0 Y${i*90}  F1000`,
+                    //`G1 Z40 X0 Y${10 + (i*10)}  F1000`
+                    );
+    }
+    print([...HOME,...coords]);*/
     res.send("Thanks!")
 });
 

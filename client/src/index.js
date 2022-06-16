@@ -80,6 +80,41 @@ const  App = ()=>{
   },[]);
 
 
+  const deltaY = (x,y)=>{
+    console.log(x);
+      if (x <= 13)  return -95 + Math.floor((x/13)*5); //13-0
+      if (x <= 43)  return -90 + Math.floor(((x-13)/30)*10); //43-13
+      if (x <= 78)  return -80 + Math.floor(((x-43)/35)*10); //78-43
+      if (x <= 116) return -70 + Math.floor(((x-78)/38)*10); //116-78
+      if (x <= 154) return -60 + Math.floor(((x-116)/38)*10); //154-116
+      if (x <= 192) return -50 + Math.floor(((x-154)/38)*10); //192-154
+      if (x <= 235) return -40 + Math.floor(((x-192)/43)*10); //235-192
+      if (x <= 276) return -30 + Math.floor(((x-235)/41)*10); //276-235
+      if (x <= 319) return -20 + Math.floor(((x-276)/43)*10); //319-276
+      if (x <= 361) return -10 + Math.floor(((x-319)/41)*10); //361-319
+      if (x <= 404) return 0 +   Math.floor(((x-361)/42)*10); //404-361
+      if (x <= 445) return 10 +  Math.floor(((x-404)/41)*10); //445-404
+      if (x <= 483) return 20 +  Math.floor(((x-445)/38)*10); //483-445
+      if (x <= 521) return 30 +  Math.floor(((x-483)/38)*10); //521-483  
+      if (x <= 557) return 40 +  Math.floor(((x-521)/36)*10); //557-521  
+      if (x <= 591) return 52 +  Math.floor(((x-557)/34)*10); //591-557
+      if (x <= 624) return 60 +  Math.floor(((x-591)/33)*10); //624-591
+      if (x > 624)  return 70 +  Math.floor(((x-624)/15)*6)  //639-624
+    }
+
+    const deltaX = (x,y)=>{
+      if (y >  346) return 21;
+      if (y >= 309) return 10  + Math.floor(((y-309)/37)*10); //346-309
+      if (y >= 269) return 0   + Math.floor(((y-269)/40)*10); //309-269
+      if (y >= 230) return -8   + Math.floor(((y-230)/39)*10);//269-230
+      if (y >= 191) return -18   + Math.floor(((y-191)/39)*10);//230-191
+      if (y >= 153) return -28   + Math.floor(((y-153)/38)*10);//191-153
+      if (y >= 115) return -38   + Math.floor(((y-115)/38)*10);//153-115
+      if (y >= 76)  return -48   + Math.floor(((y-76)/39)*10);//115-76
+      if (y >= 42)  return -58   + Math.floor(((y-42)/34)*10);//76-42
+      if (y > 0)    return -68   + Math.floor(((y-7)/35)*10);//42-7
+    }
+
   /*const renderPredictions = (c)=>{
     const font = "16px sans-serif";
     ctx.font = font;
@@ -416,6 +451,49 @@ const  App = ()=>{
     }
 
     
+    //x = 0 axis
+  /*
+    0,-95 0,   269
+    0,-90 13,  270
+    0,-80 43,  271
+    0,-70 78,  271
+    0,-60 116, 271
+    0,-50 154, 271
+    0,-40 192, 271
+    0,-30 235, 271
+    0,-20 276, 271
+    0,-10 319, 271
+    0,0   361, 274
+    0,10  404, 274 
+    0,20  445, 274
+    0,30  483, 273
+    0,40  521, 273
+    0,50  557, 272
+    0,60  591, 272
+    0,70  624, 272
+    0,76  639, 270
+  */
+
+  //y=270 axis
+  /*  
+    20  346
+    10  309
+    0   269
+    -10 230
+    -20 191
+    -30 153
+    -40 115
+    -50 76
+    -60 42
+    -70 7
+  */
+
+    canvasGLRef.current.addEventListener('mousedown', async function(e) {
+      const px = e.clientX;
+      const py = e.clientY;  
+      console.log(px,py, "=>",deltaX(px, py), deltaY(px,py));
+      await tap(deltaX(px, py), deltaY(px,py));
+    })
 
     canvasRef.current.addEventListener('mousedown', async function(e) {
       const px = e.clientX;
@@ -472,7 +550,7 @@ const  App = ()=>{
     });
     const dataURL = cgl.toDataURL("image/jpeg");
     console.log(dataURL);
-    /*request
+    request
      		.post('/predict')
      		.set('content-Type', 'application/json')
         .send({image:dataURL})
@@ -497,21 +575,22 @@ const  App = ()=>{
 
                   const px = Math.floor(x + (width / 2));
                   const py = Math.floor(y + (height / 2));
-                  const delta = closestpoint(px,py);
-                  console.log(delta)
+                  //const delta = closestpoint(px,py);
+                  //console.log(delta)
                   ctx.strokeStyle = "#FFFF00";
                   ctx.strokeRect(px-3, py-3, 6, 6);
-                  await tap(delta[2], delta[3]);  
+                  
+                  await tap(deltaX(px,py), deltaY(px,py));  
 
                 
               }
 		        }
-		    });*/
+		    });
   }
 
   return (<div>
       <div> {/*className="Dropzone-page">*/}
-
+          <canvas ref={canvasGLRef} id="canvas" width="640" height="360" /*style={{display:"none"}}*/ />
           <video ref={videoRef} style={{
                 opacity: 1, /*videoopacity,*/
                 /*position:"absolute",*/
@@ -526,9 +605,9 @@ const  App = ()=>{
                
               }}
             />
-        
+       
         <canvas ref={canvasRef} id="canvas" width="640" height="360" style={{display:"none"}} />
-        <canvas ref={canvasGLRef} id="canvas" width="640" height="360" style={{/*display:"none"*/}} />
+       
         {/* model ? (
           <MagicDropzone
             className="Dropzone"
