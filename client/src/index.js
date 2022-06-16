@@ -488,13 +488,22 @@ const  App = ()=>{
     -70 7
   */
 
+    let doubleClickThreshold = 50;  //ms
+    let lastClick = 0;
+
     canvasGLRef.current.addEventListener('mousedown', async function(e) {
       const px = e.clientX;
       const py = e.clientY;  
       console.log(px,py, "=>",deltaX(px, py), deltaY(px,py));
-      await tap(deltaX(px, py), deltaY(px,py));
+      if (e.button == 0){
+        await tap(deltaX(px, py), deltaY(px,py));
+      }
+      else if (e.button == 1){
+        await swipeup(deltaX(px, py), deltaY(px,py));
+      }
     })
 
+    
     canvasRef.current.addEventListener('mousedown', async function(e) {
       const px = e.clientX;
       const py = e.clientY-364;  
@@ -507,6 +516,20 @@ const  App = ()=>{
     })
   }
 
+  const swipeup = (dx,dy)=>{
+    return new Promise((resolve, reject)=>{
+      request.get('/swipe')
+      .set('content-Type', 'application/json')
+      .query({x:dx, y:dy})
+      .end(function(err, res){
+        if(err){
+          console.log(err);
+        }
+        resolve();
+      });
+    });
+  }
+  
   const tap = (dx,dy)=>{
     return new Promise((resolve, reject)=>{
       request.get('/goto')

@@ -234,20 +234,15 @@ app.get('/pos', async (req,res)=>{
 app.get('/goto', async (req, res)=>{
     const {x,y} = req.query;
     await print(["G90", `G1 X${x} Y${y} Z15 F10000`,`G1 Z9 F20000`,`G4 P80`,...NEWPICTURE]);
-    //, ...CLOSEAPP, ...NEWPICTURE]);
-    //,"G0 Z9 F20000","G0 Z15 F20000",...PICTURE ])
-    /*const coords = [];
-    for (let i = 1; i < 2; i++){
-        
-        coords.push(`G1 Z50 X${x} Y${x}  F1000`,
-                    `G1 Z40 X${x} Y${y}  F1000`, 
-                    //`G1 Z40 X0 Y${i*90}  F1000`,
-                    //`G1 Z40 X0 Y${10 + (i*10)}  F1000`
-                    );
-    }
-    print([...HOME,...coords]);*/
     res.send("Thanks!")
 });
+
+app.get('/swipe', async (req, res)=>{
+    const {x,y} = req.query;
+    await print(["G90", `G1 X${x} Y${y} Z15 F10000`,`G1 Z9 F20000`,`G4 P80`,`G1 X${x} Y${Math.max(-90,y-60)} Z15 F10000`,...NEWPICTURE]);
+    res.send("Thanks!")
+});
+
 
 app.get('/home', async (req,res)=>{
     await print(HOME)
