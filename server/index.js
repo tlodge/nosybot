@@ -4,6 +4,7 @@ import {SerialPort} from 'serialport'
 import {deconstruct,reconstruct} from './GCODE/module.js'
 import * as tf from '@tensorflow/tfjs-node'
 import fs from 'fs'
+import cv from 'node-opencv'
 
 const app = express();
 app.use(bodyParser.json({limit:'25mb'}))
