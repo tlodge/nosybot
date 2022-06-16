@@ -4,8 +4,8 @@ import MagicDropzone from "react-magic-dropzone";
 import {useCamera} from './hooks/useCamera';
 import "./styles.css";
 import request from 'superagent';
+import FisheyeGl from './fish'; 
 //const tf = require('@tensorflow/tfjs');
-
 //const weights = '/web_model/model.json';
 //const weights = 'http://127.0.0.1:8080/model.json';
 //const names = ['contacts', 'isettings', 'imessage', 'whatsapp']
@@ -52,6 +52,7 @@ const  App = ()=>{
   
   const videoRef = createRef();
   const canvasRef = createRef();
+  const canvasGLRef = createRef();
 
   const [video, isCameraInitialised, playing, setPlaying, error] = useCamera(videoRef);
   const [ctx, setCtx] = useState();
@@ -446,13 +447,32 @@ const  App = ()=>{
   const snap = ()=>{
     
     const c = canvasRef.current;
+    const cgl = canvasGLRef.current;
+
     const ctx = c.getContext("2d");
     
 		ctx.drawImage(video, 0, 0, 640, 360);
     grid(ctx)
-    const dataURL = c.toDataURL("image/jpeg");
+    const originalImageURL = c.toDataURL("image/jpeg");
    
-    request
+    var distorter = FisheyeGl({
+      image: originalImageURL,
+      canvas: cgl, // a canvas element to work with
+      lens: {
+        a: 0.872,    // 0 to 4;  default 1
+        b: 0.939,    // 0 to 4;  default 1
+        Fx: 0.03, // 0 to 4;  default 0.0
+        Fy: 0.08, // 0 to 4;  default 0.0
+        scale: 0.909 // 0 to 20; default 1.5
+      },
+      fov: {
+        x: 1, // 0 to 2; default 1
+        y: 1  // 0 to 2; default 1
+      }
+    });
+    const dataURL = cgl.toDataURL("image/jpeg");
+    console.log(dataURL);
+    /*request
      		.post('/predict')
      		.set('content-Type', 'application/json')
         .send({image:dataURL})
@@ -486,7 +506,7 @@ const  App = ()=>{
                 
               }
 		        }
-		    });
+		    });*/
   }
 
   return (<div>
@@ -507,8 +527,8 @@ const  App = ()=>{
               }}
             />
         
-        <canvas ref={canvasRef} id="canvas" width="640" height="360" style={{/*display:"none"*/}} />
-        
+        <canvas ref={canvasRef} id="canvas" width="640" height="360" style={{display:"none"}} />
+        <canvas ref={canvasGLRef} id="canvas" width="640" height="360" style={{/*display:"none"*/}} />
         {/* model ? (
           <MagicDropzone
             className="Dropzone"
