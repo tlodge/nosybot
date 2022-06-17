@@ -4,7 +4,8 @@ import {SerialPort} from 'serialport'
 import {deconstruct,reconstruct} from './GCODE/module.js'
 import * as tf from '@tensorflow/tfjs-node'
 import fs from 'fs'
-import cv from 'node-opencv'
+import request  from 'superagent'
+
 
 const app = express();
 app.use(bodyParser.json({limit:'25mb'}))
@@ -24,12 +25,10 @@ tf.loadGraphModel(weights).then(m => {
 });
 
 
-const predict =  async (buf)=>{
-    
-    var filename  = `images/phone_${Date.now()}.jpg`;
-	
-	fs.writeFileSync(filename, buf);
-    //const imageBuffer = fs.readFileSync(path);
+const predict =  async (buf,name)=>{
+   
+
+ 
     const tfimage = tf.node.decodeImage(buf);
     
     const input = tf.tidy(() => {    
@@ -103,10 +102,8 @@ const print = (commands)=>{
             return `${acc}\n${item}`
         },""));
 
-        console.log("ok print comamnds", printCommands);
         const printLine = (command)=>{
             if (command){
-                console.log("cailling", command)
                 printerCommand(command);
             }else{
                 printPosition +=1;
@@ -126,7 +123,7 @@ const print = (commands)=>{
                             printLine(reconstruct(printCommands[printPosition]));
                         },50);
                     }else{
-                        console.log("closed onnecton!");
+                        console.log("closed connecton!");
                         sp.close();
                         resolve();
                     }
@@ -209,7 +206,12 @@ app.post('/predict', async (req, res)=>{
     const image = req.body.image;
 	const data = image.replace(/^data:image\/\w+;base64,/, "");
 	const buf = new Buffer(data, 'base64');
-	const [num, boxes, scores, classes] = await predict(buf);   
+    var name = `phone_${Date.now()}`
+    var filename  = `images/${name}.jpg`;
+	fs.writeFileSync(filename, buf);
+    const response = await request.get(`http://localhost:5000?p=${name}`)
+    const {body:{x,y,w,h}} = response;
+	const [num, boxes, scores, classes] = await predict(buf,name);   
     const predictions = [];
 
     for (let i = 0; i < num; ++i){
@@ -224,7 +226,7 @@ app.post('/predict', async (req, res)=>{
         predictions.push({x:x1, y:y1, width, height, class:classes[i], score:scores[i].toFixed(2)});
     }
     console.log(JSON.stringify(predictions,null,4));
-    res.send(predictions);
+    res.send({predictions, bounds:{x,y,w,h}});
 });
 
 app.get('/pos', async (req,res)=>{

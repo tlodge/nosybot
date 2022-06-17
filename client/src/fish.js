@@ -186,37 +186,6 @@ export default function FisheyeGl(options){
         
         if (url === "fragment3")
             return fragment3;
-
-      //if(shaders.hasOwnProperty(url)) {
-      //  return shaders[url];
-      //}
-  
-      var ajax = new XMLHttpRequest();
-  
-      if(callback) {
-        ajax.addEventListener("readystatechange", on)
-        ajax.open("GET", url, true);
-        ajax.send(null);
-      } else {
-        ajax.open("GET", url, false);
-        ajax.send(null);
-  
-        if(ajax.status == 200){
-          return ajax.responseText;
-        }
-      }
-  
-      function on(){
-        if(ajax.readyState === 4){
-          //complete requset
-          if(ajax.status === 200){
-            //not error
-            callback(null, ajax.responseText);
-          } else {
-            callback(new Error("fail to load!"));
-          }
-        }
-      }
     }
   
     function loadImage(gl, img, callback, texture){
@@ -331,9 +300,8 @@ export default function FisheyeGl(options){
   
       var img = new Image();
   
-      img.src = gl.canvas.toDataURL(format || 'image/jpeg');
+      return gl.canvas.toDataURL(format || 'image/jpeg');
   
-      return img;
   
     }
   
