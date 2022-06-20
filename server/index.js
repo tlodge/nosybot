@@ -116,19 +116,19 @@ const print = (commands)=>{
             sp.on('data', function(data) {
                 
                 if(data.indexOf("ok") != -1 || data == "start\r"){
-                    console.log(data.toString())
+                    
                     printPosition += 1;
                     if (printPosition < printCommands.length){
                         setTimeout(()=>{
                             printLine(reconstruct(printCommands[printPosition]));
                         },50);
                     }else{
-                        console.log("closed connecton!");
+                        console.log("finished printing");
                         sp.close();
                         resolve();
                     }
                 } else {
-                    console.log("Nope", data.toString())
+                    //console.log("Nope", data.toString())
                 }      
             });
         });
@@ -143,27 +143,17 @@ const print = (commands)=>{
 
 function printerCommand(comm){
    
-    if(comm !== undefined && comm.indexOf(" ") === comm.length - 1){
-        console.log(comm.slice(comm.length - 1, comm.length));
+    if(comm !== undefined && comm.indexOf(" ") === comm.length - 1)
         comm = comm.substring(0, comm.length - 1);
-   
     }
    
-    //console.log((printPosition + 1) + " / " + printCommands.length + ": " + comm);
-
     sp.write(comm + "\n", function(err, results) {
-        console.log("results", err, results);
+       
         if(err){
             console.log(">>>ERR");
             console.log(err);
             console.log("<<<");
         }
-
-        if(comm !== "M105"){
-            
-            //printPosition += 1;
-        }
-
     });
 
 }
@@ -199,6 +189,17 @@ app.get('/test', (req, res)=>{
 
 app.get('/picture', (req, res)=>{
     print(NEWPICTURE)
+});
+
+app.post('/peek', async (req, res)=>{
+    console.log("seen a peek");
+    const {image,category=""} = req.body;
+	const data = image.replace(/^data:image\/\w+;base64,/, "");
+	const buf = new Buffer(data, 'base64');
+    var name = `peek_${Date.now()}_${category}`
+    var filename  = `images/${name}.jpg`;
+	fs.writeFileSync(filename, buf);
+    res.send({success:true, filename});
 });
 
 app.post('/predict', async (req, res)=>{

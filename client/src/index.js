@@ -43,7 +43,7 @@ import FisheyeGl from './fish';
   */
 
 const  App = ()=>{
-  
+  let distorter;
   const videoRef = createRef();
   const canvasRef = createRef();
   const canvasGLRef = createRef();
@@ -137,32 +137,7 @@ const  App = ()=>{
     
   }
 
-  const snap = ()=>{
-    
-    const c = canvasRef.current;
-    const cgl = canvasGLRef.current;
-
-    const ctx = c.getContext("2d");
-		ctx.drawImage(video, 0, 0, 640, 360);
-    const originalImageURL = c.toDataURL("image/jpeg");
-   
-    var distorter = FisheyeGl({
-      image: originalImageURL,
-      canvas: cgl, // a canvas element to work with
-      lens: {
-        a: 0.872,    // 0 to 4;  default 1
-        b: 0.939,    // 0 to 4;  default 1
-        Fx: 0.03, // 0 to 4;  default 0.0
-        Fy: 0.08, // 0 to 4;  default 0.0
-        scale: 0.909 // 0 to 20; default 1.5
-      },
-      fov: {
-        x: 1, // 0 to 2; default 1
-        y: 1  // 0 to 2; default 1
-      }
-    });
-    
-
+  const predict = ()=>{
     setTimeout(()=>{
       const dataURL = distorter.getImage("image/jpeg");
     
@@ -177,23 +152,70 @@ const  App = ()=>{
               let i = 0;
               const {x:_x,y:_y,w:_w,h:_h} = res.body.bounds;
               for (let prediction of res.body.predictions || []){
-                const {x,y,width,score,height} = prediction;
-                ctx.fillStyle = "#00FFFF";
-                ctx.strokeStyle = "#FF0000";
-                ctx.lineWidth = 1;
-                ctx.strokeRect(x, y, width, height);
+                const {x,y,width,class:category,height} = prediction;
+                //ctx.fillStyle = "#00FFFF";
+                //ctx.strokeStyle = "#FF0000";
+                //ctx.lineWidth = 1;
+                //ctx.strokeRect(x, y, width, height);
                 const px = Math.floor(x + (width / 2));
                 const py = Math.floor(y + (height / 2));
-                ctx.strokeStyle = "#FFFF00";
-                ctx.strokeRect(px-3, py-3, 6, 6);
+                //ctx.strokeStyle = "#FFFF00";
+                //ctx.strokeRect(px-3, py-3, 6, 6);
                 await tap(deltaX(px,py), deltaY(px,py))
+                peek(category);
                 if (!(_x==0 && _y==0 && _w==0 && _h==0)){
-                  await swipeup(deltaX((_x+_w)-30,(_y+_h)/2),deltaY((_x+_w)-30,(_y+_h)/2));
+                  await swipeup(deltaX((_x+_w)-35,(_y+_h)/2),deltaY((_x+_w)-35,(_y+_h)/2));
                 }
               }  
 		        }
 		    });
       },500);
+  }
+
+  const peek = (category)=>{
+    const c = canvasRef.current;
+    const ctx = c.getContext("2d");
+		ctx.drawImage(video, 0, 0, 640, 360);
+    const dataURL = c.toDataURL("image/jpeg");
+    request
+      .post('/peek')
+      .set('content-Type', 'application/json')
+      .send({image:dataURL, category})
+      .end(async function(err, res){
+        console.log("peeked!", res.body);
+      })
+  }
+
+  const snap = ()=>{
+    
+    const c = canvasRef.current;
+    const cgl = canvasGLRef.current;
+
+    const ctx = c.getContext("2d");
+		ctx.drawImage(video, 0, 0, 640, 360);
+    const originalImageURL = c.toDataURL("image/jpeg");
+    
+    //need an await here!
+    distorter = FisheyeGl({
+      image: originalImageURL,
+      canvas: cgl, // a canvas element to work with
+      lens: {
+        a: 0.872,    // 0 to 4;  default 1
+        b: 0.939,    // 0 to 4;  default 1
+        Fx: 0.03, // 0 to 4;  default 0.0
+        Fy: 0.08, // 0 to 4;  default 0.0
+        scale: 0.909 // 0 to 20; default 1.5
+      },
+      fov: {
+        x: 1, // 0 to 2; default 1
+        y: 1  // 0 to 2; default 1
+      }
+    });
+  }
+
+  const snapandpredict =()=>{
+    snap();
+    predict();
   }
 
   return (<div>
@@ -215,7 +237,7 @@ const  App = ()=>{
             />
           <canvas ref={canvasRef} id="canvas" width="640" height="360" style={{display:"none"}} />
       </div>
-      <button onClick={snap}>take a picture</button>
+      <button onClick={snapandpredict}>take a picture</button>
       </div>
     );
   
