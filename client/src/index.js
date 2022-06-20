@@ -153,16 +153,12 @@ const  App = ()=>{
               const {x:_x,y:_y,w:_w,h:_h} = res.body.bounds;
               for (let prediction of res.body.predictions || []){
                 const {x,y,width,class:category,height} = prediction;
-                //ctx.fillStyle = "#00FFFF";
-                //ctx.strokeStyle = "#FF0000";
-                //ctx.lineWidth = 1;
-                //ctx.strokeRect(x, y, width, height);
                 const px = Math.floor(x + (width / 2));
                 const py = Math.floor(y + (height / 2));
-                //ctx.strokeStyle = "#FFFF00";
-                //ctx.strokeRect(px-3, py-3, 6, 6);
-                await tap(deltaX(px,py), deltaY(px,py))
-                peek(category);
+                await tap(deltaX(px,py), deltaY(px,py));
+                console.log("tap complete, taking picture");
+                await peek(category);
+                console.log("taken picture");
                 if (!(_x==0 && _y==0 && _w==0 && _h==0)){
                   await swipeup(deltaX((_x+_w)-35,(_y+_h)/2),deltaY((_x+_w)-35,(_y+_h)/2));
                 }
@@ -177,13 +173,17 @@ const  App = ()=>{
     const ctx = c.getContext("2d");
 		ctx.drawImage(video, 0, 0, 640, 360);
     const dataURL = c.toDataURL("image/jpeg");
-    request
-      .post('/peek')
-      .set('content-Type', 'application/json')
-      .send({image:dataURL, category})
-      .end(async function(err, res){
-        console.log("peeked!", res.body);
-      })
+    return new Promise((resolve, reject)=>{
+     
+          request
+            .post('/peek')
+            .set('content-Type', 'application/json')
+            .send({image:dataURL, category})
+            .end(async function(err, res){
+              resolve();
+            })
+        })
+    
   }
 
   const snap = ()=>{

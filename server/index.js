@@ -5,6 +5,7 @@ import {deconstruct,reconstruct} from './GCODE/module.js'
 import * as tf from '@tensorflow/tfjs-node'
 import fs from 'fs'
 import request  from 'superagent'
+import { homedir } from 'os'
 
 
 const app = express();
@@ -87,8 +88,8 @@ const POS =     ["G0 X-15",
 
 let printPosition = 1;
 let sp = undefined;
-
-const print = (commands)=>{
+let setup = false;
+const print = (_commands)=>{
 
    return new Promise((resolve, reject)=>{
         sp = new SerialPort({
@@ -97,11 +98,8 @@ const print = (commands)=>{
             baudRate : 115200
         });
         printPosition = 0;
-    
-        const printCommands = deconstruct(commands.reduce((acc,item)=>{
-            return `${acc}\n${item}`
-        },""));
-
+        
+       
         const printLine = (command)=>{
             if (command){
                 printerCommand(command);
@@ -112,20 +110,34 @@ const print = (commands)=>{
 
     
         sp.open(()=>{
+            //force to home on first connection!
+            const commands = !setup ? [...HOME,_commands] : _commands;
+            setup = true;
+         
+            const printCommands = deconstruct(commands.reduce((acc,item)=>{
+                return `${acc}\n${item}`
+            },""));
+    
             printerCommand(reconstruct(printCommands[0]));
             sp.on('data', function(data) {
-                
+                //console.log(data.toString());
+                if (data.indexOf("wait") != -1){
+                    if (printPosition >= printCommands.length){
+                       
+                        sp.close();
+                        resolve();
+                        return;
+                    }
+                }
                 if(data.indexOf("ok") != -1 || data == "start\r"){
-                    
+                
                     printPosition += 1;
                     if (printPosition < printCommands.length){
                         setTimeout(()=>{
                             printLine(reconstruct(printCommands[printPosition]));
                         },50);
                     }else{
-                        console.log("finished printing");
-                        sp.close();
-                        resolve();
+                        console.log("finished sending commands");    
                     }
                 } else {
                     //console.log("Nope", data.toString())
@@ -143,7 +155,7 @@ const print = (commands)=>{
 
 function printerCommand(comm){
    
-    if(comm !== undefined && comm.indexOf(" ") === comm.length - 1)
+    if(comm !== undefined && comm.indexOf(" ") === comm.length - 1){
         comm = comm.substring(0, comm.length - 1);
     }
    
@@ -163,7 +175,7 @@ app.get('/', (req,res)=>{
     res.send("ROBOT DATA CAPTURER")
 });
 
-app.get('/test', (req, res)=>{
+app.get('/test', async (req, res)=>{
    
     const coords = [];
 
@@ -184,11 +196,13 @@ app.get('/test', (req, res)=>{
                     //`G1 Z40 X0 Y${10 + (i*10)}  F1000`
                     );
     }
-    print([...HOME,"G90",...coords]);
+    await print([...HOME,"G90",...coords]);
+    res.send({command:"test",complete:true});
 });
 
-app.get('/picture', (req, res)=>{
-    print(NEWPICTURE)
+app.get('/picture', async (req, res)=>{
+    await print(NEWPICTURE)
+    res.send({command:"picture",complete:true});
 });
 
 app.post('/peek', async (req, res)=>{
@@ -230,27 +244,24 @@ app.post('/predict', async (req, res)=>{
     res.send({predictions, bounds:{x,y,w,h}});
 });
 
-app.get('/pos', async (req,res)=>{
-    await print([...HOME,...POS,...HOME])
-    res.send("Thanks!")
-});
 
 app.get('/goto', async (req, res)=>{
     const {x,y} = req.query;
     await print(["G90", `G1 X${x} Y${y} Z15 F10000`,`G1 Z9 F20000`,`G4 P80`,...NEWPICTURE]);
-    res.send("Thanks!")
+    console.log("finished printing");
+    res.send({command:"goto", complete:true});
 });
 
 app.get('/swipe', async (req, res)=>{
     const {x,y} = req.query;
     await print(["G90", `G1 X${x} Y${y} Z15 F10000`,`G1 Z9 F20000`,`G4 P80`,`G1 X${x} Y${Math.max(-90,y-60)} Z15 F10000`,...NEWPICTURE]);
-    res.send("Thanks!")
+    res.send({command:"swipe", complete:true});
 });
 
 
 app.get('/home', async (req,res)=>{
     await print(HOME)
-    res.send("Thanks!")
+    res.send({command:"home", complete:true});
 });
 
 app.get('/swipe', async (req,res)=>{
@@ -261,12 +272,7 @@ app.get('/swipe', async (req,res)=>{
             ...SWIPE,
             ...PICTURE,
             ...HOME])
-    res.send("Thanks!")
-});
-
-app.get('/print', async (req,res)=>{
-    print([...PICTURE])
-    await res.send("Thanks!")
+    res.send({command:"swipe",complete:true});
 });
 
 app.listen(PORT, ()=>{
