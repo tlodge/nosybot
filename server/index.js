@@ -200,10 +200,7 @@ app.get('/test', async (req, res)=>{
     res.send({command:"test",complete:true});
 });
 
-app.get('/picture', async (req, res)=>{
-    await print(NEWPICTURE)
-    res.send({command:"picture",complete:true});
-});
+
 
 app.post('/peek', async (req, res)=>{
     console.log("seen a peek");
@@ -248,22 +245,26 @@ app.post('/predict', async (req, res)=>{
     res.send({predictions, bounds:{x,y,w,h}});
 });
 
-
-app.get('/goto', async (req, res)=>{
-    const {x,y} = req.query;
-    await print(["G90", `G1 X${x} Y${y} Z15 F10000`,`G1 Z9 F20000`,`G4 P80`,...NEWPICTURE]);
-    res.send({command:"goto", complete:true});
+app.get('/picture', async (req, res)=>{
+    await print(NEWPICTURE)
+    res.send({command:"picture",complete:true});
 });
 
-app.get('/fasttap', async (req, res)=>{
+app.get('/press', async (req, res)=>{
     const {x,y} = req.query;
-    await print(["G90", `G1 X${x} Y${y} Z15 F10000`,`G1 Z9 F20000`,`G1 Z15 F20000`,...NEWPICTURE]);
-    res.send({command:"fasttap", complete:true});
+    await print(["G90", `G1 X${x} Y${y} Z15 F10000`,`G1 Z9 F20000`,`G4 P80`]);
+    res.send({command:"press", complete:true});
+});
+
+app.get('/tap', async (req, res)=>{
+    const {x,y} = req.query;
+    await print(["G90", `G1 X${x} Y${y} Z20 F20000`,`G0 Z9 F20000`, `G0 Z20 F20000`]);
+    res.send({command:"tap", complete:true});
 });
 
 app.get('/swipe', async (req, res)=>{
     const {x,y} = req.query;
-    await print(["G90", `G1 X${x} Y${y} Z15 F10000`,`G1 Z9 F20000`,`G4 P80`,`G1 X${x} Y${Math.max(-90,y-60)} Z15 F10000`,...NEWPICTURE]);
+    await print(["G90", `G1 X${x} Y${y} Z15 F20000`,`G1 Z9 F20000`,`G1 X${x} Y${Math.max(-90,y-60)} Z15 F20000`]);
     res.send({command:"swipe", complete:true});
 });
 
@@ -271,17 +272,6 @@ app.get('/swipe', async (req, res)=>{
 app.get('/home', async (req,res)=>{
     await print(HOME)
     res.send({command:"home", complete:true});
-});
-
-app.get('/swipe', async (req,res)=>{
-    await print([ ...HOME,
-            ...PICTURE,
-            ...SWIPE,
-            ...PICTURE,
-            ...SWIPE,
-            ...PICTURE,
-            ...HOME])
-    res.send({command:"swipe",complete:true});
 });
 
 app.listen(PORT, ()=>{
