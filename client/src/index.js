@@ -137,10 +137,40 @@ const  App = ()=>{
     
   }
 
+  const fasttap = (dx,dy)=>{
+    return new Promise((resolve, reject)=>{
+      request.get('/fasttap')
+      .set('content-Type', 'application/json')
+      .query({x:dx, y:dy})
+      .end(function(err, res){
+        if(err){
+          console.log(err);
+        }
+        resolve();
+      });
+    });
+    
+  }
+
   const waitfor = (ms)=>{ 
     return new Promise((resolve, reject)=>{
        setTimeout(resolve, ms);
     });
+  }
+
+  const iphoto = async({x,y,w,h})=>{
+    //tap bottom left nav button (library)
+    await tap(deltaX(x+w-50,y+h-40),deltaY(x+w-50,y+h-40));
+    //scroll to bottom of screen
+    await swipeup(deltaX(x+w-100,(y+h)/2),deltaY(x+w-100,(y+h)/2));
+    await swipeup(deltaX(x+w-100,(y+h)/2),deltaY(x+w-100,(y+h)/2));
+    await swipeup(deltaX(x+w-100,(y+h)/2),deltaY(x+w-100,(y+h)/2));
+    await swipeup(deltaX(x+w-100,(y+h)/2),deltaY(x+w-100,(y+h)/2));
+    //tap most recent images
+    await fasttap(deltaX(x+w-200,(y+h)/2),deltaY(x+w-200,(y+h)/2));
+    //take a picture
+    await waitfor(2000);
+    await peek("iphoto");
   }
 
   const predict = ()=>{
@@ -159,14 +189,19 @@ const  App = ()=>{
               const {x:_x,y:_y,w:_w,h:_h} = res.body.bounds;
               for (let prediction of res.body.predictions || []){
                 const {x,y,width,class:category,height} = prediction;
-                const px = Math.floor(x + (width / 2));
-                const py = Math.floor(y + (height / 2));
-                await tap(deltaX(px,py), deltaY(px,py));
-                await waitfor(2000);
-                await peek(category);
-              
-                if (!(_x==0 && _y==0 && _w==0 && _h==0)){
-                  await swipeup(deltaX((_x+_w)-35,(_y+_h)/2),deltaY((_x+_w)-35,(_y+_h)/2));
+                if (category === "iphoto"){
+                  const px = Math.floor(x + (width / 2));
+                  const py = Math.floor(y + (height / 2));
+                  console.log("tapping", category);
+                  await tap(deltaX(px,py), deltaY(px,py));
+                  await waitfor(2000);
+                  await peek(category);
+                  if (category === "iphoto"){
+                    await iphoto(res.body.bounds);
+                  }
+                  if (!(_x==0 && _y==0 && _w==0 && _h==0)){
+                    await swipeup(deltaX((_x+_w)-35,(_y+_h)/2),deltaY((_x+_w)-35,(_y+_h)/2));
+                  }
                 }
               }  
 		        }

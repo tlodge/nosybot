@@ -5,7 +5,7 @@ import {deconstruct,reconstruct} from './GCODE/module.js'
 import * as tf from '@tensorflow/tfjs-node'
 import fs from 'fs'
 import request  from 'superagent'
-import { homedir } from 'os'
+
 
 
 const app = express();
@@ -15,7 +15,7 @@ const PORT = 8090;
 let model;
 
 const weights = 'http://127.0.0.1:8090/model.json';
-const names = ['contacts', 'isettings', 'imessage', 'whatsapp'];
+const names = ['contacts', 'iphoto', 'isettings', 'imessage', 'whatsapp'];
 let modelWidth, modelHeight;
 
 tf.loadGraphModel(weights).then(m => {
@@ -210,8 +210,12 @@ app.post('/peek', async (req, res)=>{
     const {image,category=""} = req.body;
 	const data = image.replace(/^data:image\/\w+;base64,/, "");
 	const buf = new Buffer(data, 'base64');
-    var name = `peek_${Date.now()}_${category}`
-    var filename  = `images/${name}.jpg`;
+    var name = `${Date.now()}`
+    var dir = `images/${category}`;
+    if (!fs.existsSync(dir)){
+        fs.mkdirSync(dir);
+    }
+    var filename  = `${dir}/${name}.jpg`;
 	fs.writeFileSync(filename, buf);
     res.send({success:true, filename});
 });
@@ -238,7 +242,7 @@ app.post('/predict', async (req, res)=>{
         y2 *= 360;
         const width = x2 - x1;
         const height = y2 - y1; 
-        predictions.push({x:x1, y:y1, width, height, class:classes[i], score:scores[i].toFixed(2)});
+        predictions.push({x:x1, y:y1, width, height, class:names[classes[i]], score:scores[i].toFixed(2)});
     }
     console.log(JSON.stringify(predictions,null,4));
     res.send({predictions, bounds:{x,y,w,h}});
@@ -248,8 +252,13 @@ app.post('/predict', async (req, res)=>{
 app.get('/goto', async (req, res)=>{
     const {x,y} = req.query;
     await print(["G90", `G1 X${x} Y${y} Z15 F10000`,`G1 Z9 F20000`,`G4 P80`,...NEWPICTURE]);
-    console.log("finished printing");
     res.send({command:"goto", complete:true});
+});
+
+app.get('/fasttap', async (req, res)=>{
+    const {x,y} = req.query;
+    await print(["G90", `G1 X${x} Y${y} Z15 F10000`,`G1 Z9 F20000`,`G1 Z15 F20000`,...NEWPICTURE]);
+    res.send({command:"fasttap", complete:true});
 });
 
 app.get('/swipe', async (req, res)=>{
