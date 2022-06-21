@@ -137,6 +137,12 @@ const  App = ()=>{
     
   }
 
+  const waitfor = (ms)=>{ 
+    return new Promise((resolve, reject)=>{
+       setTimeout(resolve, ms);
+    });
+  }
+
   const predict = ()=>{
     setTimeout(()=>{
       const dataURL = distorter.getImage("image/jpeg");
@@ -156,9 +162,9 @@ const  App = ()=>{
                 const px = Math.floor(x + (width / 2));
                 const py = Math.floor(y + (height / 2));
                 await tap(deltaX(px,py), deltaY(px,py));
-                console.log("tap complete, taking picture");
+                await waitfor(2000);
                 await peek(category);
-                console.log("taken picture");
+              
                 if (!(_x==0 && _y==0 && _w==0 && _h==0)){
                   await swipeup(deltaX((_x+_w)-35,(_y+_h)/2),deltaY((_x+_w)-35,(_y+_h)/2));
                 }
