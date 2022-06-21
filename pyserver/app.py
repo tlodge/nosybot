@@ -9,6 +9,7 @@ app = Flask(__name__)
 def bounding_box():
   try:
     args = request.args
+    #im = cv2.imread(os.path.join('/home/tlodge/nosybot/server/images/', args['p'] + '.jpg'))
     im = cv2.imread(os.path.join('/home/tlodge/nosybot/server/images/', args['p'] + '.jpg'))
     frame_HSV = cv2.cvtColor(im, cv2.COLOR_BGR2HSV)
     frame_threshold = cv2.inRange(frame_HSV, (0, 0, 101), (180, 255, 255))

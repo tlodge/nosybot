@@ -252,7 +252,7 @@ app.get('/picture', async (req, res)=>{
 
 app.get('/press', async (req, res)=>{
     const {x,y} = req.query;
-    await print(["G90", `G1 X${x} Y${y} Z15 F10000`,`G1 Z9 F20000`,`G4 P80`]);
+    await print(["G90", `G1 X${x} Y${y} Z20 F20000`,`G0 Z9 F20000`, `G4 P80`, `G0 Z20 F20000`]);
     res.send({command:"press", complete:true});
 });
 

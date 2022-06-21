@@ -5,6 +5,9 @@ import "./styles.css";
 import request from 'superagent';
 import FisheyeGl from './fish';
 
+const PHONEBORDERX = 21;
+const PHONEBORDERY = 42;
+
     //x = 0 axis
   /*
     0,-95 0,   269
@@ -57,7 +60,7 @@ const  App = ()=>{
     return Math.max(-65,x);
   }
   const deltaY = (x,y)=>{
-    console.log("delta Y", x);
+      //console.log("delta Y", x);
       if (x <= 13)  return limitY(-95 + Math.floor((x/13)*5)); //13-0
       if (x <= 43)  return limitY(-90 + Math.floor(((x-13)/30)*10)); //43-13
       if (x <= 78)  return limitY(-80 + Math.floor(((x-43)/35)*10)); //78-43
@@ -85,7 +88,7 @@ const  App = ()=>{
       if (y >= 269) return limitX(0   + Math.floor(((y-269)/40)*10)); //309-269
       if (y >= 230) return limitX(-8   + Math.floor(((y-230)/39)*10));//269-230
       if (y >= 191) return limitX(-18   + Math.floor(((y-191)/39)*10));//230-191
-      if (y >= 153) return limitX(-28   + Math.floor(((y-153)/38)*10));//191-153
+      if (y >= 153) return limitX(-30   + Math.floor(((y-153)/38)*10));//191-153
       if (y >= 115) return limitX(-38   + Math.floor(((y-115)/38)*10));//153-115
       if (y >= 76)  return limitX(-48   + Math.floor(((y-76)/39)*10));//115-76
       if (y >= 42)  return limitX(-58   + Math.floor(((y-42)/34)*10));//76-42
@@ -100,7 +103,7 @@ const  App = ()=>{
       const py = e.clientY;  
       console.log(px,py, "=>",deltaX(px, py), deltaY(px,py));
       if (e.button == 0){
-        await tap(deltaX(px, py), deltaY(px,py));
+        await press(deltaX(px, py), deltaY(px,py));
       }
       else if (e.button == 1){
         await swipeup(deltaX(px, py), deltaY(px,py));
@@ -122,9 +125,9 @@ const  App = ()=>{
     });
   }
   
-  const tap = (dx,dy)=>{
+  const press = (dx,dy)=>{
     return new Promise((resolve, reject)=>{
-      request.get('/goto')
+      request.get('/press')
       .set('content-Type', 'application/json')
       .query({x:dx, y:dy})
       .end(function(err, res){
@@ -137,9 +140,22 @@ const  App = ()=>{
     
   }
 
-  const fasttap = (dx,dy)=>{
+  const picture = (dx,dy)=>{
     return new Promise((resolve, reject)=>{
-      request.get('/fasttap')
+      request.get('/picture')
+      .set('content-Type', 'application/json')
+      .end(function(err, res){
+        if(err){
+          console.log(err);
+        }
+        resolve();
+      });
+    }); 
+  }
+
+  const tap = (dx,dy)=>{
+    return new Promise((resolve, reject)=>{
+      request.get('/tap')
       .set('content-Type', 'application/json')
       .query({x:dx, y:dy})
       .end(function(err, res){
@@ -158,21 +174,51 @@ const  App = ()=>{
     });
   }
 
-  const iphoto = async({x,y,w,h})=>{
+  const swipeupfor = async(n, {x,y,w,h})=>{
+    const arr = Array.from({ length: n }, (_, i) => i)
+    for (const swipe of arr){
+      await swipeup(deltaX(x+w-100,(y+h)/2),deltaY(x+w-100,(y+h)/2));
+    }
+  }
+
+  const contacts = async(bounds)=>{
+    const {x,y,w,h} = bounds;
     //tap bottom left nav button (library)
-    await tap(deltaX(x+w-50,y+h-40),deltaY(x+w-50,y+h-40));
+    const fifth = h/5
+    const delta = 3*Math.floor(fifth);
+    await tap(deltaX(x+w-50,y+delta),deltaY(x+w-50,y+delta));
+    await peek("contacts");
+  }
+
+  const iphoto = async(bounds)=>{
+    const {x,y,w,h} = bounds;
+    
+    //tap bottom left nav button (library)
+    const quart = h/4;
+    const delta = 3 * Math.floor(quart);
+    await tap(deltaX(x+w-50,y+delta),deltaY(x+w-50,y+delta));
     //scroll to bottom of screen
-    await swipeup(deltaX(x+w-100,(y+h)/2),deltaY(x+w-100,(y+h)/2));
-    await swipeup(deltaX(x+w-100,(y+h)/2),deltaY(x+w-100,(y+h)/2));
-    await swipeup(deltaX(x+w-100,(y+h)/2),deltaY(x+w-100,(y+h)/2));
-    await swipeup(deltaX(x+w-100,(y+h)/2),deltaY(x+w-100,(y+h)/2));
-    //tap most recent images
-    await fasttap(deltaX(x+w-200,(y+h)/2),deltaY(x+w-200,(y+h)/2));
+    await swipeupfor(6, bounds);
+    //press most recent images
+    await tap(deltaX(x+w-200,(y+h)/2),deltaY(x+w-200,(y+h)/2));
     //take a picture
-    await waitfor(2000);
+    await peek("iphoto");
+    await tap(deltaX(x+w-200,(y+h)/2),deltaY(x+w-200,(y+h)/2));
+    await peek("iphoto");
+    await swipeupfor(1, bounds);
+    await peek("iphoto");
+    await swipeupfor(1, bounds);
     await peek("iphoto");
   }
 
+  const adjustforborders = (bounds)=>{
+    return {
+      x: bounds.x+PHONEBORDERX,
+      y: bounds.y+PHONEBORDERY,
+      w: bounds.w-PHONEBORDERX,
+      h: bounds.h-PHONEBORDERY,
+    }
+  }
   const predict = ()=>{
     setTimeout(()=>{
       const dataURL = distorter.getImage("image/jpeg");
@@ -186,30 +232,43 @@ const  App = ()=>{
 		          console.log(err);
 		        }else{
               let i = 0;
-              const {x:_x,y:_y,w:_w,h:_h} = res.body.bounds;
+              const {x:_x,y:_y,w:_w,h:_h} = adjustforborders(res.body.bounds);
+              console.log("Bounds", res.body.bounds);
               for (let prediction of res.body.predictions || []){
                 const {x,y,width,class:category,height} = prediction;
-                if (category === "iphoto"){
+                //if (["iphoto","contacts"].indexOf(category) !== -1){
+                  
                   const px = Math.floor(x + (width / 2));
                   const py = Math.floor(y + (height / 2));
-                  console.log("tapping", category);
-                  await tap(deltaX(px,py), deltaY(px,py));
-                  await waitfor(2000);
+                  //open the app
+                  console.log("px", px, "py", py)
+                  await press(deltaX(px,py), deltaY(px,py));
+                  
                   await peek(category);
+
                   if (category === "iphoto"){
-                    await iphoto(res.body.bounds);
+                    await iphoto({x:_x,y:_y,w:_w,h:_h});
                   }
+                  if (category === "contacts"){
+                    await contacts({x:_x,y:_y,w:_w,h:_h});
+                  }
+
+                  //close app
                   if (!(_x==0 && _y==0 && _w==0 && _h==0)){
                     await swipeup(deltaX((_x+_w)-35,(_y+_h)/2),deltaY((_x+_w)-35,(_y+_h)/2));
                   }
-                }
-              }  
+                  await picture(); 
+                //}
+              }
+               
 		        }
 		    });
       },500);
   }
 
-  const peek = (category)=>{
+  const peek = async (category)=>{
+    await picture();
+    await waitfor(2000);
     const c = canvasRef.current;
     const ctx = c.getContext("2d");
 		ctx.drawImage(video, 0, 0, 640, 360);
