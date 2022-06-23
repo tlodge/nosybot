@@ -1,0 +1,4 @@
+[console_scripts]
+larynx = larynx.__main__:main
+larynx-server = larynx.server.__main__:main
+
