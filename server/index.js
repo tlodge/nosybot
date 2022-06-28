@@ -2,12 +2,9 @@ import express from 'express'
 import bodyParser from 'body-parser'
 import {SerialPort} from 'serialport'
 import {deconstruct,reconstruct} from './GCODE/module.js'
-import * as tf from '@tensorflow/tfjs-node'
+import * as tf from '@tensorflow/tfjs'
 import fs from 'fs'
 import request  from 'superagent'
-
-
-
 const app = express();
 app.use(bodyParser.json({limit:'25mb'}))
 
@@ -17,6 +14,8 @@ let model;
 const weights = 'http://127.0.0.1:8090/model.json';
 const names = ['contacts', 'iphoto', 'isettings', 'imessage', 'whatsapp'];
 let modelWidth, modelHeight;
+
+console.log(tf.node);
 
 tf.loadGraphModel(weights).then(m => {
     model=m;

@@ -10,10 +10,13 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@tensorflow/tfjs-node": "^3.18.0",
+    "@tensorflow/tfjs-node": "^2.7.3", 
+    "@tensorflow/tfjs": "^3.18.0",
+    "@tensorflow/tfjs-backend-cpu": "^3.15.0",
     "body-parser": "^1.20.0",
     "express": "^4.18.1",
     "serialport": "^10.4.0",
-    "superagent": "^7.1.6"
+    "superagent": "^7.1.6",
+    "tfjs-tflite-node": "^0.0.2"
   }
 }
