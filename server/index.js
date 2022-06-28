@@ -5,31 +5,37 @@ import {deconstruct,reconstruct} from './GCODE/module.js'
 import * as tf from '@tensorflow/tfjs-node'
 import fs from 'fs'
 import request  from 'superagent'
-
+import cocoSsd from '@tensorflow-models/coco-ssd';
 
 
 const app = express();
 app.use(bodyParser.json({limit:'25mb'}))
 
 const PORT = 8090;
-let model;
+let model, cocosmodel;
 
 const weights = 'http://127.0.0.1:8090/model.json';
 const names = ['contacts', 'iphoto', 'isettings', 'imessage', 'whatsapp'];
 let modelWidth, modelHeight;
+let BOUNDS = {x:0,y:0,w:0,h:0};
 
 tf.loadGraphModel(weights).then(m => {
     model=m;
     [modelWidth, modelHeight] = model.inputs[0].shape.slice(1, 3);
     console.log(modelWidth, modelHeight)
-    
 });
 
 
+cocoSsd.load().then(m=>{
+    console.log("cocos loaded!");
+    cocosmodel = m;
+});
+
+const say = async (words)=>{
+    await request.get(`http://localhost:5000/say`).query({words})
+}
 const predict =  async (buf,name)=>{
    
-
- 
     const tfimage = tf.node.decodeImage(buf);
     
     const input = tf.tidy(() => {    
@@ -48,43 +54,8 @@ const predict =  async (buf,name)=>{
     //});
 }
 
-const COMMANDS = ["G90","G28 X0","G28 Y0","G28 Z0","G00 Z20 F20000","G0 X80 F20000"];
 const HOME = ["G90","G28 X0","G28 Y0","G28 Z0"];
-const PICTURE = ["G91","G0 X0 F5000", "G0 Y0 F20000", "G0 Z145 F20000", "G4 S1"];
-//const NEWPICTURE = ["G1 Z139 F5000","G1 X1 F5000", "G1 Y1 F5000"];
 const NEWPICTURE = ["G1 Z149 F5000","G1 X1 F5000", "G1 Y1 F5000"];
-const SWIPE = ["G91","G0 X80 F20000","G0 Z10 F20000","G0 X-10 F6000","G0 Z30 F10000","G0 X80 F10000","G0 Z10 F10000","G0 X-10 F6000","G0 Z30 F10000" ];
-const CLOSEAPP =["G90","G1 Z20 X-20 Y55 F8000", "G1 Z9 X-20 Y55 F8000","G1 Z9 X-20 Y-85 F20000","G1 Z20 F10000"];
-
-const POS =     ["G0 X-15",
-                "G0 Z11 F20000",
-                "G0 Z15 F20000",
-                "G4 P500",
-                "G0 Y35 F20000",
-                "G0 X30 F20000",
-
-                "G0 Z11 F20000",
-                "G0 X1 F3000",
-
-                "G0 Z15 F20000",
-                "G0 X30 F20000",
-                "G0 Z11 F20000",
-                "G0 X1 F3000",
-
-                "G0 Z15 F20000",
-                "G0 X30 F20000",
-                "G0 Z11 F20000",
-                "G0 X1 F3000",
-
-                "G0 Z15 F20000",
-                "G0 X53 F20000",
-                "G0 Y5 F3000",
-                "G0 Z11 F20000",
-                "G4 P500",
-                "G0 X-40 F6000",
-                "G0 Z15 F20000",
-               
-            ];
 
 let printPosition = 1;
 let sp = undefined;
@@ -179,28 +150,25 @@ app.get('/test', async (req, res)=>{
    
     const coords = [];
 
-    /*for (let i = 0; i < 5; i++){
-        
-        coords.push(`G1 Z40 X${i*-10} Y0 F1000`,
-                    `G1 Z35 X${i*-10} Y0 F1000`, 
-                    `G1 Z40 X${i*-10} Y0 F1000`,
-                    `G1 Z40 X${-10 + (i*-10)} Y0 F1000`
-                    );
-    }*/
-
     for (let i = 1; i < 2; i++){
-        
-        coords.push(`G1 Z40 X20 Y${0}  F1000`,
-                    `G1 Z35 X20 Y${0}  F1000`, 
-                    //`G1 Z40 X0 Y${i*90}  F1000`,
-                    //`G1 Z40 X0 Y${10 + (i*10)}  F1000`
-                    );
+        coords.push(`G1 Z40 X20 Y${0}  F1000`,`G1 Z35 X20 Y${0}  F1000`);
     }
     await print([...HOME,"G90",...coords]);
     res.send({command:"test",complete:true});
 });
 
-
+const cocospredict = async (filename)=>{
+    const img = fs.readFileSync(filename);
+    const imgTensor = tf.node.decodeImage(new Uint8Array(img), 3);
+    const predictions = await cocosmodel.detect(imgTensor);
+    if (predictions.length > 0){
+        const words = predictions.map(p=>p.class).join(" and ");
+        await say(`I have seen ${words}`);
+    }else{
+        await say("I have not seen anything interesting");
+    }
+    return predictions;
+}
 
 app.post('/peek', async (req, res)=>{
     console.log("seen a peek");
@@ -214,7 +182,29 @@ app.post('/peek', async (req, res)=>{
     }
     var filename  = `${dir}/${name}.jpg`;
 	fs.writeFileSync(filename, buf);
+    if (category == "iphoto"){
+      await cocospredict(filename);
+    }
     res.send({success:true, filename});
+});
+
+app.get('/say', async (req, res)=>{
+    const {words} = req.query;
+    console.log("getting flask to say", words);
+    await say(words);
+    res.send({success:true});
+})
+
+app.post('/bounds', async (req, res)=>{
+    const image = req.body.image;
+	const data = image.replace(/^data:image\/\w+;base64,/, "");
+	const buf = new Buffer(data, 'base64');
+    var filename  = `images/bounds.jpg`;
+	fs.writeFileSync(filename, buf);
+    const response = await request.get(`http://localhost:5000?p=bounds`);
+    const {body:{x,y,w,h}} = response;
+    BOUNDS = {x,y,w,h};
+    res.send({bounds:{x,y,w,h}});
 });
 
 app.post('/predict', async (req, res)=>{
@@ -262,12 +252,23 @@ app.get('/tap', async (req, res)=>{
     res.send({command:"tap", complete:true});
 });
 
-app.get('/swipe', async (req, res)=>{
+app.get('/swipeup', async (req, res)=>{
     const {x,y} = req.query;
     await print(["G90", `G1 X${x} Y${y} Z15 F20000`,`G1 Z9 F20000`,`G1 X${x} Y${Math.max(-90,y-60)} Z15 F20000`]);
     res.send({command:"swipe", complete:true});
 });
 
+app.get('/swiperight', async (req, res)=>{
+
+});
+
+app.get('/swipedown', async (req, res)=>{
+   
+    const {x,y} = req.query;
+    console.log("in swipe down", x, y);
+    await print(["G90", `G1 X${x} Y${y} Z15 F20000`,`G1 Z9 F20000`,`G1 X${x} Y${50} Z15 F20000`]);
+    res.send({command:"swipe", complete:true});
+});
 
 app.get('/home', async (req,res)=>{
     await print(HOME)
