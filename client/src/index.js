@@ -46,12 +46,13 @@ const PHONEBORDERY = 42;
   */
 
 const  App = ()=>{
-  let distorter;
+  let distorter, BOUNDS;
   const videoRef = createRef();
   const canvasRef = createRef();
   const canvasGLRef = createRef();
   const [video, isCameraInitialised, playing, setPlaying, error] = useCamera(videoRef);
-  let ctx;
+
+ 
   const limitY = (y)=>{
     return Math.max(-82,y)
   }
@@ -113,7 +114,7 @@ const  App = ()=>{
 
   const swipeup = (dx,dy)=>{
     return new Promise((resolve, reject)=>{
-      request.get('/swipe')
+      request.get('/swipeup')
       .set('content-Type', 'application/json')
       .query({x:dx, y:dy})
       .end(function(err, res){
@@ -125,6 +126,20 @@ const  App = ()=>{
     });
   }
   
+  const swipedown = (dx,dy)=>{
+    return new Promise((resolve, reject)=>{
+      request.get('/swipedown')
+      .set('content-Type', 'application/json')
+      .query({x:dx, y:dy})
+      .end(function(err, res){
+        if(err){
+          console.log(err);
+        }
+        resolve();
+      });
+    });
+  }
+
   const press = (dx,dy)=>{
     return new Promise((resolve, reject)=>{
       request.get('/press')
@@ -153,6 +168,19 @@ const  App = ()=>{
     }); 
   }
 
+  const zoompicture = (dx,dy)=>{
+    return new Promise((resolve, reject)=>{
+      request.get('/zoompicture')
+      .set('content-Type', 'application/json')
+      .end(function(err, res){
+        if(err){
+          console.log(err);
+        }
+        resolve();
+      });
+    }); 
+  }
+
   const tap = (dx,dy)=>{
     return new Promise((resolve, reject)=>{
       request.get('/tap')
@@ -168,6 +196,32 @@ const  App = ()=>{
     
   }
 
+  const tapback = (dx,dy)=>{
+    return new Promise((resolve, reject)=>{
+      request.get('/tapback')
+      .set('content-Type', 'application/json')
+      .end(function(err, res){
+        if(err){
+          console.log(err);
+        }
+        resolve();
+      });
+    });
+  }
+
+  const pressmiddle = (dx,dy)=>{
+    return new Promise((resolve, reject)=>{
+      request.get('/pressmiddle')
+      .set('content-Type', 'application/json')
+      .end(function(err, res){
+        if(err){
+          console.log(err);
+        }
+        resolve();
+      });
+    });
+  }
+
   const waitfor = (ms)=>{ 
     return new Promise((resolve, reject)=>{
        setTimeout(resolve, ms);
@@ -178,6 +232,12 @@ const  App = ()=>{
     const arr = Array.from({ length: n }, (_, i) => i)
     for (const swipe of arr){
       await swipeup(deltaX(x+w-100,(y+h)/2),deltaY(x+w-100,(y+h)/2));
+    }
+  }
+  const swipedownfor = async(n, {x,y,w,h})=>{
+    const arr = Array.from({ length: n }, (_, i) => i)
+    for (const swipe of arr){
+      await swipedown(deltaX(x+w/2,(y+h)/2),deltaY(x+w/2,(y+h)/2));
     }
   }
 
@@ -193,22 +253,30 @@ const  App = ()=>{
   const iphoto = async(bounds)=>{
     const {x,y,w,h} = bounds;
     
+    //tap the back button incase phone is already looking at a picture
+    await(tapback());
     //tap bottom left nav button (library)
     const quart = h/4;
     const delta = 3 * Math.floor(quart);
     await tap(deltaX(x+w-50,y+delta),deltaY(x+w-50,y+delta));
-    //scroll to bottom of screen
-    await swipeupfor(6, bounds);
-    //press most recent images
-    await tap(deltaX(x+w-200,(y+h)/2),deltaY(x+w-200,(y+h)/2));
-    //take a picture
-    await peek("iphoto");
-    await tap(deltaX(x+w-200,(y+h)/2),deltaY(x+w-200,(y+h)/2));
-    await peek("iphoto");
-    await swipeupfor(1, bounds);
-    await peek("iphoto");
-    await swipeupfor(1, bounds);
-    await peek("iphoto");
+    await waitfor(500);
+    await tap(deltaX(x+w-50,y+delta),deltaY(x+w-50,y+delta));
+
+    for (const x of [1,2,3,4, 5]){
+      await swipedownfor(1, bounds);
+      //stop scroll
+      await pressmiddle();
+      //open picture
+      await pressmiddle();
+      //focus on picture
+      await pressmiddle();
+      await grab("iphoto");
+      //defocus picture
+      await(tapback());
+      //go back
+      await(tapback());
+    }
+
   }
 
   const adjustforborders = (bounds)=>{
@@ -219,10 +287,41 @@ const  App = ()=>{
       h: bounds.h-PHONEBORDERY,
     }
   }
+
+  const say = async (words)=>{
+    console.log("saying", words);
+    await request
+     		.get('/say')
+        .query({words})
+  }
+
+  const requestBounds = async(dataURL)=>{
+    console.log("requesting bounds!");
+    return new Promise((resolve, reject)=>{
+      request
+      .post('/bounds')
+      .set('content-Type', 'application/json')
+      .send({image:dataURL})
+      .end(async function(err, res){
+        if (err){
+          console.log(err);
+        }else{
+          console.log("set bounds to", res.body.bounds);
+          BOUNDS = res.body.bounds;
+          resolve(res.body.bounds);
+        }
+      })
+    });
+  }
+
   const predict = ()=>{
-    setTimeout(()=>{
+   
+    setTimeout(async()=>{
       const dataURL = distorter.getImage("image/jpeg");
-    
+      let _bounds = BOUNDS;
+      if (!_bounds){
+        _bounds = await requestBounds(dataURL);
+      }
       request
      		.post('/predict')
      		.set('content-Type', 'application/json')
@@ -232,16 +331,18 @@ const  App = ()=>{
 		          console.log(err);
 		        }else{
               let i = 0;
-              const {x:_x,y:_y,w:_w,h:_h} = adjustforborders(res.body.bounds);
-              console.log("Bounds", res.body.bounds);
+              console.log("Bounds", _bounds);
+              const {x:_x,y:_y,w:_w,h:_h} = adjustforborders(_bounds);
+              
               for (let prediction of res.body.predictions || []){
                 const {x,y,width,class:category,height} = prediction;
-                //if (["iphoto","contacts"].indexOf(category) !== -1){
-                  
+                if (["iphoto"].indexOf(category) !== -1){
+                  await say(`looking at ${category}`);
                   const px = Math.floor(x + (width / 2));
                   const py = Math.floor(y + (height / 2));
                   //open the app
                   console.log("px", px, "py", py)
+                
                   await press(deltaX(px,py), deltaY(px,py));
                   
                   await peek(category);
@@ -258,12 +359,33 @@ const  App = ()=>{
                     await swipeup(deltaX((_x+_w)-35,(_y+_h)/2),deltaY((_x+_w)-35,(_y+_h)/2));
                   }
                   await picture(); 
-                //}
+                }
               }
                
 		        }
 		    });
       },500);
+  }
+
+  const grab = async (category)=>{
+    await zoompicture();
+    await waitfor(2000);
+    const c = canvasRef.current;
+    const ctx = c.getContext("2d");
+		ctx.drawImage(video, 0, 0, 640, 360);
+    const dataURL = c.toDataURL("image/jpeg");
+    return new Promise((resolve, reject)=>{
+     
+          request
+            .post('/peek')
+            .set('content-Type', 'application/json')
+            .send({image:dataURL, category})
+            .end(async function(err, res){
+              await picture();
+              resolve();
+            })
+        })
+     
   }
 
   const peek = async (category)=>{
@@ -322,14 +444,7 @@ const  App = ()=>{
       <div> 
           <canvas ref={canvasGLRef} id="canvas" width="640" height="360" /*style={{display:"none"}}*/ />
           <video ref={videoRef} style={{
-                opacity: 1, /*videoopacity,*/
-                /*position:"absolute",*/
-                /*marginLeft: "auto",
-                marginRight: "auto",
-                left: 0,
-                right: 0,
-                textAlign: "center",
-                zindex: 9,*/
+                opacity: 1, 
                 width: 640,
                 height: 360,
                

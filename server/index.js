@@ -6,7 +6,7 @@ import * as tf from '@tensorflow/tfjs-node'
 import fs from 'fs'
 import request  from 'superagent'
 import cocoSsd from '@tensorflow-models/coco-ssd';
-
+import {deltaX, deltaY} from './utils/coords.js';
 
 const app = express();
 app.use(bodyParser.json({limit:'25mb'}))
@@ -55,7 +55,8 @@ const predict =  async (buf,name)=>{
 }
 
 const HOME = ["G90","G28 X0","G28 Y0","G28 Z0"];
-const NEWPICTURE = ["G1 Z149 F5000","G1 X1 F5000", "G1 Y1 F5000"];
+const PICTURE = ["G1 Z149 F5000","G1 X1 F5000", "G1 Y1 F5000"];
+const ZOOMPICTURE = ["G1 Z110 F5000","G1 X1 F5000", "G1 Y1 F5000"];
 
 let printPosition = 1;
 let sp = undefined;
@@ -161,11 +162,14 @@ const cocospredict = async (filename)=>{
     const img = fs.readFileSync(filename);
     const imgTensor = tf.node.decodeImage(new Uint8Array(img), 3);
     const predictions = await cocosmodel.detect(imgTensor);
-    if (predictions.length > 0){
+    /*(if (predictions.length > 0){
         const words = predictions.map(p=>p.class).join(" and ");
         await say(`I have seen ${words}`);
     }else{
         await say("I have not seen anything interesting");
+    }*/
+    if (predictions.map(p=>p.class).indexOf("person") != -1){
+        await say(`I have seen a person`);
     }
     return predictions;
 }
@@ -195,14 +199,41 @@ app.get('/say', async (req, res)=>{
     res.send({success:true});
 })
 
+app.get('/tapback', async(req, res)=>{
+    const {x,y,w,h} = { x: 18, y: 39, w: 577, h: 292 };
+    console.log("bounds ate", x,y,w,h);
+    const dx = deltaX(x,y+h);
+    const dy = deltaY(x,y+h);
+    console.log(dx, dy);
+    if (w>0 && h > 0){
+        await print(["G90", `G1 X${dx-8} Y${dy+16} Z20 F20000`,`G0 Z9 F20000`, `G4 P100`, `G0 Z20 F20000`]);
+    }
+    res.send({command:"press", complete:true});
+});
+
+app.get('/pressmiddle', async(req, res)=>{
+    const {x,y,w,h} = { x: 18, y: 39, w: 577, h: 292 };
+    console.log("bounds ate", x,y,w,h);
+    const dx = deltaX((x+w)/2,(y+h)/2);
+    const dy = deltaY((x+w)/2,(y+h)/2);
+    console.log(dx, dy);
+    if (w>0 && h > 0){
+        await print(["G90", `G1 X${dx+10} Y${dy} Z20 F20000`,`G0 Z9 F20000`, `G4 P10`, `G0 Z20 F20000`]);
+    }
+    res.send({command:"press", complete:true});
+});
+
 app.post('/bounds', async (req, res)=>{
+    console.log("seen a call to bounds");
     const image = req.body.image;
 	const data = image.replace(/^data:image\/\w+;base64,/, "");
 	const buf = new Buffer(data, 'base64');
     var filename  = `images/bounds.jpg`;
 	fs.writeFileSync(filename, buf);
     const response = await request.get(`http://localhost:5000?p=bounds`);
+    
     const {body:{x,y,w,h}} = response;
+    console.log("---->set bounds to", {x,y,w,h})
     BOUNDS = {x,y,w,h};
     res.send({bounds:{x,y,w,h}});
 });
@@ -236,7 +267,12 @@ app.post('/predict', async (req, res)=>{
 });
 
 app.get('/picture', async (req, res)=>{
-    await print(NEWPICTURE)
+    await print(PICTURE)
+    res.send({command:"picture",complete:true});
+});
+
+app.get('/zoompicture', async (req, res)=>{
+    await print(ZOOMPICTURE)
     res.send({command:"picture",complete:true});
 });
 
