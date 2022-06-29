@@ -107,16 +107,17 @@ const  App = ()=>{
         await press(deltaX(px, py), deltaY(px,py));
       }
       else if (e.button == 1){
-        await swipeup(deltaX(px, py), deltaY(px,py));
+        await swipeup({x:deltaX(px, py), y:deltaY(px,py)});
       }
     })
   },[]);
 
-  const swipeup = (dx,dy)=>{
+  const swipeup = ({x:dx,y:dy,speed=20000})=>{
+    const query = dx && dy ? {x:dx, y:dy, speed} : {speed};
     return new Promise((resolve, reject)=>{
       request.get('/swipeup')
       .set('content-Type', 'application/json')
-      .query({x:dx, y:dy})
+      .query(query)
       .end(function(err, res){
         if(err){
           console.log(err);
@@ -126,11 +127,25 @@ const  App = ()=>{
     });
   }
   
-  const swipedown = (dx,dy)=>{
+  const swipedown = ({x:dx,y:dy, speed=20000})=>{
+    const query = dx && dy ? {x:dx, y:dy, speed} : {speed};
     return new Promise((resolve, reject)=>{
       request.get('/swipedown')
       .set('content-Type', 'application/json')
-      .query({x:dx, y:dy})
+      .query(query)
+      .end(function(err, res){
+        if(err){
+          console.log(err);
+        }
+        resolve();
+      });
+    });
+  }
+
+  const swiperight = ()=>{
+    return new Promise((resolve, reject)=>{
+      request.get('/swiperight')
+      .set('content-Type', 'application/json')
       .end(function(err, res){
         if(err){
           console.log(err);
@@ -237,9 +252,19 @@ const  App = ()=>{
   const swipedownfor = async(n, {x,y,w,h})=>{
     const arr = Array.from({ length: n }, (_, i) => i)
     for (const swipe of arr){
-      await swipedown(deltaX(x+w/2,(y+h)/2),deltaY(x+w/2,(y+h)/2));
+      await swipedown({x:deltaX(x+w/2,(y+h)/2),y:deltaY(x+w/2,(y+h)/2)});
     }
   }
+
+  const repeatfor = (n, fn)=>{
+    return new Promise(async (resolve, reject)=>{
+      const arr = Array.from({ length: n }, (_, i) => i)
+      for (const swipe of arr){
+        await fn();
+      }
+      resolve();
+    });
+  };
 
   const contacts = async(bounds)=>{
     const {x,y,w,h} = bounds;
@@ -263,7 +288,9 @@ const  App = ()=>{
     await tap(deltaX(x+w-50,y+delta),deltaY(x+w-50,y+delta));
 
     for (const x of [1,2,3,4, 5]){
-      await swipedownfor(1, bounds);
+      //await repeatfor(1, async?? ()=>{ swipedown({x:deltaX(x+w/2,(y+h)/2),y:deltaY(x+w/2,(y+h)/2)})});
+
+      await swipedownfor(1, {x:deltaX((x+w)/2,(y+h)/2),y:deltaY((x+w)/2,(y+h)/2)});
       //stop scroll
       await pressmiddle();
       //open picture
@@ -314,9 +341,13 @@ const  App = ()=>{
     });
   }
 
-  const predict = ()=>{
+  const libraryscreen = async()=>{
+    await repeatfor(10, swiperight)
+  }
+
+  const predict =  ()=>{
    
-    setTimeout(async()=>{
+      setTimeout(async ()=>{
       const dataURL = distorter.getImage("image/jpeg");
       let _bounds = BOUNDS;
       if (!_bounds){
@@ -356,7 +387,7 @@ const  App = ()=>{
 
                   //close app
                   if (!(_x==0 && _y==0 && _w==0 && _h==0)){
-                    await swipeup(deltaX((_x+_w)-35,(_y+_h)/2),deltaY((_x+_w)-35,(_y+_h)/2));
+                    await swipeup({x:deltaX((_x+_w)-35,(_y+_h)/2),y:deltaY((_x+_w)-35,(_y+_h)/2)});
                   }
                   await picture(); 
                 }
@@ -365,6 +396,7 @@ const  App = ()=>{
 		        }
 		    });
       },500);
+   
   }
 
   const grab = async (category)=>{
@@ -408,8 +440,8 @@ const  App = ()=>{
     
   }
 
-  const snap = ()=>{
-    
+  const snap =  ()=>{
+
     const c = canvasRef.current;
     const cgl = canvasGLRef.current;
 
@@ -433,11 +465,20 @@ const  App = ()=>{
         y: 1  // 0 to 2; default 1
       }
     });
+   
   }
 
-  const snapandpredict =()=>{
+  const snapandpredict = async()=>{
+    //await libraryscreen();
+   // await picture();
+    //await waitfor(2000);
     snap();
     predict();
+    //await swipeup({speed:5000});
+    //await picture();
+    //await waitfor(2000);
+    //await snap();
+   // await predict();
   }
 
   return (<div>

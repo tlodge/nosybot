@@ -17,7 +17,7 @@ let model, cocosmodel;
 const weights = 'http://127.0.0.1:8090/model.json';
 const names = ['contacts', 'iphoto', 'isettings', 'imessage', 'whatsapp'];
 let modelWidth, modelHeight;
-let BOUNDS = {x:0,y:0,w:0,h:0};
+let BOUNDS = { x: 18, y: 39, w: 577, h: 292 };
 
 tf.loadGraphModel(weights).then(m => {
     model=m;
@@ -159,19 +159,24 @@ app.get('/test', async (req, res)=>{
 });
 
 const cocospredict = async (filename)=>{
-    const img = fs.readFileSync(filename);
-    const imgTensor = tf.node.decodeImage(new Uint8Array(img), 3);
-    const predictions = await cocosmodel.detect(imgTensor);
-    /*(if (predictions.length > 0){
-        const words = predictions.map(p=>p.class).join(" and ");
-        await say(`I have seen ${words}`);
-    }else{
-        await say("I have not seen anything interesting");
-    }*/
-    if (predictions.map(p=>p.class).indexOf("person") != -1){
-        await say(`I have seen a person`);
+    try{
+        const img = fs.readFileSync(filename);
+        const imgTensor = tf.node.decodeImage(new Uint8Array(img), 3);
+        const predictions = await cocosmodel.detect(imgTensor);
+        /*(if (predictions.length > 0){
+            const words = predictions.map(p=>p.class).join(" and ");
+            await say(`I have seen ${words}`);
+        }else{
+            await say("I have not seen anything interesting");
+        }*/
+        if (predictions.map(p=>p.class).indexOf("person") != -1){
+            await say(`I have seen a person`);
+        }
+        return predictions;
+    }catch(err){
+        console.log(err);
+        return [];
     }
-    return predictions;
 }
 
 app.post('/peek', async (req, res)=>{
@@ -212,7 +217,7 @@ app.get('/tapback', async(req, res)=>{
 });
 
 app.get('/pressmiddle', async(req, res)=>{
-    const {x,y,w,h} = { x: 18, y: 39, w: 577, h: 292 };
+    const {x,y,w,h} = BOUNDS;
     console.log("bounds ate", x,y,w,h);
     const dx = deltaX((x+w)/2,(y+h)/2);
     const dy = deltaY((x+w)/2,(y+h)/2);
@@ -224,7 +229,7 @@ app.get('/pressmiddle', async(req, res)=>{
 });
 
 app.post('/bounds', async (req, res)=>{
-    console.log("seen a call to bounds");
+   
     const image = req.body.image;
 	const data = image.replace(/^data:image\/\w+;base64,/, "");
 	const buf = new Buffer(data, 'base64');
@@ -288,15 +293,39 @@ app.get('/tap', async (req, res)=>{
     res.send({command:"tap", complete:true});
 });
 
+//either swipe from passed in coords or swipe from middle
 app.get('/swipeup', async (req, res)=>{
-    const {x,y} = req.query;
-    await print(["G90", `G1 X${x} Y${y} Z15 F20000`,`G1 Z9 F20000`,`G1 X${x} Y${Math.max(-90,y-60)} Z15 F20000`]);
+    const {x:xb,y:yb,w,h} = BOUNDS;
+    const dx = deltaX((xb+w)/2,(yb+h)/2);
+    const dy = deltaY((xb+w)/2,(yb+h)/2);
+    const {x=dx,y=dy, speed=20000} = req.query;
+    console.log("-->in swipe up", x, y, speed);
+    await print(["G90", `G1 X${x} Y${y} Z15 F20000`,`G1 Z9 F20000`,`G1 X${x} Y${Math.max(-90,y-30)} Z15 F${speed}`]);
     res.send({command:"swipe", complete:true});
 });
 
-app.get('/swiperight', async (req, res)=>{
+//either swipe from passed in coords or swipe from middle
+/*app.get('/swipedown', async (req, res)=>{
+    const {x:xb,y:yb,w,h} = BOUNDS;
+    const dx = deltaX((xb+w)/2,(yb+h)/2);
+    const dy = deltaY((xb+w)/2,(yb+h)/2);
+    const {x=dx,y=dy, speed=20000} = req.query;
+    console.log("-->in swipe down", x, y, speed);
+    await print(["G90", `G1 X${x} Y${y} Z15 F20000`,`G1 Z9 F20000`,`G1 X${x} Y${Math.min(50,x+30)} Z15 F${speed}`]);
+    res.send({command:"swipe", complete:true});
+});*/
 
+app.get('/swiperight', async (req, res)=>{
+    const {x,y,w,h} = BOUNDS;
+    const dx = deltaX((x+w)/2,(y+h)/2);
+    const dy = deltaY((x+w)/2,(y+h)/2);
+    console.log(dx, dy);
+    if (w>0 && h > 0){
+        await print(["G90", `G1 X${dx} Y${dy} Z20 F20000`,`G0 Z9 F20000`, `G1 X${dx+40} Y${dy} Z9 F20000`, `G0 Z20 F20000`]);
+    }
+    res.send({command:"press", complete:true});
 });
+
 
 app.get('/swipedown', async (req, res)=>{
    
