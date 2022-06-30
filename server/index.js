@@ -192,7 +192,7 @@ app.post('/peek', async (req, res)=>{
     var filename  = `${dir}/${name}.jpg`;
 	fs.writeFileSync(filename, buf);
     if (category == "iphoto"){
-      await cocospredict(filename);
+      //await cocospredict(filename);
     }
     res.send({success:true, filename});
 });
@@ -326,12 +326,24 @@ app.get('/swiperight', async (req, res)=>{
     res.send({command:"press", complete:true});
 });
 
+app.get('/swipeleft', async (req, res)=>{
+    const {x,y,w,h} = BOUNDS;
+    const dx = deltaX((x+w)/2,(y+h)/2);
+    const dy = deltaY((x+w)/2,(y+h)/2);
+    console.log(dx, dy);
+    if (w>0 && h > 0){
+        await print(["G90", `G1 X${dx+20} Y${dy} Z20 F20000`,`G0 Z9 F20000`, `G1 X${dx-20} Y${dy} Z9 F20000`, `G0 Z20 F20000`]);
+    }
+    res.send({command:"press", complete:true});
+});
+
 
 app.get('/swipedown', async (req, res)=>{
-   
-    const {x,y} = req.query;
-    console.log("in swipe down", x, y);
-    await print(["G90", `G1 X${x} Y${y} Z15 F20000`,`G1 Z9 F20000`,`G1 X${x} Y${50} Z15 F20000`]);
+    const {x:xb,y:yb,w,h} = BOUNDS;
+    const dx = deltaX((xb+w)/2,(yb+h)/2);
+    const dy = deltaY((xb+w)/2,(yb+h)/2);
+    const {x=dx,y=dy, speed=20000} = req.query;
+    await print(["G90", `G1 X${x} Y${y} Z15 F20000`,`G1 Z9 F20000`,`G1 X${x} Y${Math.min(50,x+30)} Z15 F20000`]);
     res.send({command:"swipe", complete:true});
 });
 

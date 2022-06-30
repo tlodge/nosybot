@@ -155,6 +155,19 @@ const  App = ()=>{
     });
   }
 
+  const swipeleft = ()=>{
+    return new Promise((resolve, reject)=>{
+      request.get('/swipeleft')
+      .set('content-Type', 'application/json')
+      .end(function(err, res){
+        if(err){
+          console.log(err);
+        }
+        resolve();
+      });
+    });
+  }
+
   const press = (dx,dy)=>{
     return new Promise((resolve, reject)=>{
       request.get('/press')
@@ -178,6 +191,7 @@ const  App = ()=>{
         if(err){
           console.log(err);
         }
+        //TODO: make wait part of picture - i.e. give camera time to catch up before returning!
         resolve();
       });
     }); 
@@ -191,6 +205,8 @@ const  App = ()=>{
         if(err){
           console.log(err);
         }
+      
+        //TODO: make wait part of picture - i.e. give camera time to catch up before returning!
         resolve();
       });
     }); 
@@ -275,11 +291,59 @@ const  App = ()=>{
     await peek("contacts");
   }
 
+
+  const snapevery = (duration, no, category)=>{
+    console.log("snapping a photo every", duration, "ms");
+
+    return new Promise((resolve, reject)=>{ 
+      const snaptimer = async (index=0)=>{
+        if (index >= no){
+          resolve();
+        }
+        else{ 
+            snap(); 
+            await sendpicture(category);
+            setTimeout(()=>{
+              snaptimer(++index); 
+            }, duration);
+        }
+      }
+      snaptimer();
+    });
+  }
+
   const iphoto = async(bounds)=>{
     const {x,y,w,h} = bounds;
     
     //tap the back button incase phone is already looking at a picture
     await(tapback());
+    //or zoomed in on picture
+    await(tapback());
+
+    //tap bottom left nav button (library)
+    const quart = h/4;
+    const delta = 2 * Math.floor(quart);
+    await tap(deltaX(x+w-50,y+delta),deltaY(x+w-50,y+delta));
+    await waitfor(500);
+    await tap(deltaX(x+w-50,y+delta),deltaY(x+w-50,y+delta));
+    //start the photo slideshow
+    await pressmiddle();
+    await pressmiddle();
+    await zoompicture();
+    await waitfor(1000); //camera lag!
+    await snapevery(3000,10,"iphoto")
+    await(tapback())
+    await(tapback())
+  }
+
+  const iphotoroll = async(bounds)=>{
+    const {x,y,w,h} = bounds;
+    
+    //tap the back button incase phone is already looking at a picture
+    await(tapback());
+    //or zoomed in on picture
+    await(tapback());
+
     //tap bottom left nav button (library)
     const quart = h/4;
     const delta = 3 * Math.floor(quart);
@@ -345,99 +409,96 @@ const  App = ()=>{
     await repeatfor(10, swiperight)
   }
 
+  const searchscreen = async()=>{
+    await repeatfor(5, swipeleft)
+  }
+
   const predict =  ()=>{
-   
+    return new Promise((resolve, reject)=>{
       setTimeout(async ()=>{
-      const dataURL = distorter.getImage("image/jpeg");
-      let _bounds = BOUNDS;
-      if (!_bounds){
-        _bounds = await requestBounds(dataURL);
-      }
-      request
-     		.post('/predict')
-     		.set('content-Type', 'application/json')
-        .send({image:dataURL})
-     		.end(async function(err, res){
-		        if (err){
-		          console.log(err);
-		        }else{
-              let i = 0;
-              console.log("Bounds", _bounds);
-              const {x:_x,y:_y,w:_w,h:_h} = adjustforborders(_bounds);
-              
-              for (let prediction of res.body.predictions || []){
-                const {x,y,width,class:category,height} = prediction;
-                if (["iphoto"].indexOf(category) !== -1){
-                  await say(`looking at ${category}`);
-                  const px = Math.floor(x + (width / 2));
-                  const py = Math.floor(y + (height / 2));
-                  //open the app
-                  console.log("px", px, "py", py)
+        const dataURL = distorter.getImage("image/jpeg");
+        let _bounds = BOUNDS;
+        if (!_bounds){
+          _bounds = await requestBounds(dataURL);
+        }
+        request
+          .post('/predict')
+          .set('content-Type', 'application/json')
+          .send({image:dataURL})
+          .end(async function(err, res){
+              if (err){
+                console.log(err);
+              }else{
+                let i = 0;
+                console.log("Bounds", _bounds);
+                const {x:_x,y:_y,w:_w,h:_h} = adjustforborders(_bounds);
                 
-                  await press(deltaX(px,py), deltaY(px,py));
+                for (let prediction of res.body.predictions || []){
+                  const {x,y,width,class:category,height} = prediction;
+                  //if (["iphoto"].indexOf(category) !== -1){
+                    await say(`looking at ${category}`);
+                    const px = Math.floor(x + (width / 2));
+                    const py = Math.floor(y + (height / 2));
+                    //open the app
+                    console.log("px", px, "py", py)
                   
-                  await peek(category);
+                    await press(deltaX(px,py), deltaY(px,py));
+                    
+                    await peek(category);
 
-                  if (category === "iphoto"){
-                    await iphoto({x:_x,y:_y,w:_w,h:_h});
-                  }
-                  if (category === "contacts"){
-                    await contacts({x:_x,y:_y,w:_w,h:_h});
-                  }
+                    if (category === "iphoto"){
+                      await iphoto({x:_x,y:_y,w:_w,h:_h});
+                    }
+                    if (category === "contacts"){
+                      await contacts({x:_x,y:_y,w:_w,h:_h});
+                    }
 
-                  //close app
-                  if (!(_x==0 && _y==0 && _w==0 && _h==0)){
-                    await swipeup({x:deltaX((_x+_w)-35,(_y+_h)/2),y:deltaY((_x+_w)-35,(_y+_h)/2)});
-                  }
-                  await picture(); 
+                    //close app
+                    if (!(_x==0 && _y==0 && _w==0 && _h==0)){
+                      await swipeup({x:deltaX((_x+_w)-35,(_y+_h)/2),y:deltaY((_x+_w)-35,(_y+_h)/2)});
+                    }
+                    await picture(); 
+                    
+                 // }
                 }
+                resolve();
+                
               }
-               
-		        }
-		    });
-      },500);
+          });
+        },500);
+      });
    
+  }
+
+  const sendpicture = (category)=>{
+    const c = canvasRef.current;
+    const ctx = c.getContext("2d");
+		ctx.drawImage(video, 0, 0, 640, 360);
+    const dataURL = c.toDataURL("image/jpeg");
+    return new Promise((resolve, reject)=>{
+      request
+        .post('/peek')
+        .set('content-Type', 'application/json')
+        .send({image:dataURL, category})
+        .end(async function(err, res){
+          
+          resolve();
+        })
+    })
   }
 
   const grab = async (category)=>{
     await zoompicture();
     await waitfor(2000);
-    const c = canvasRef.current;
-    const ctx = c.getContext("2d");
-		ctx.drawImage(video, 0, 0, 640, 360);
-    const dataURL = c.toDataURL("image/jpeg");
-    return new Promise((resolve, reject)=>{
-     
-          request
-            .post('/peek')
-            .set('content-Type', 'application/json')
-            .send({image:dataURL, category})
-            .end(async function(err, res){
-              await picture();
-              resolve();
-            })
-        })
-     
+    await sendpicture(category);  
+    await picture(); 
   }
 
   const peek = async (category)=>{
     await picture();
     await waitfor(2000);
-    const c = canvasRef.current;
-    const ctx = c.getContext("2d");
-		ctx.drawImage(video, 0, 0, 640, 360);
-    const dataURL = c.toDataURL("image/jpeg");
-    return new Promise((resolve, reject)=>{
-     
-          request
-            .post('/peek')
-            .set('content-Type', 'application/json')
-            .send({image:dataURL, category})
-            .end(async function(err, res){
-              resolve();
-            })
-        })
-    
+    await sendpicture(category);
+    await picture();
   }
 
   const snap =  ()=>{
@@ -469,16 +530,34 @@ const  App = ()=>{
   }
 
   const snapandpredict = async()=>{
-    //await libraryscreen();
-   // await picture();
-    //await waitfor(2000);
+
+    await searchscreen();
+    await swiperight();
+
+    //have a look on the first screen
+    await picture();
+    await waitfor(2000); //wait for camera lag to catch up!
     snap();
-    predict();
-    //await swipeup({speed:5000});
-    //await picture();
-    //await waitfor(2000);
-    //await snap();
-   // await predict();
+    await predict();
+
+    //goto to library screen
+    await libraryscreen();
+    
+    //try again
+    await picture();
+    await waitfor(2000);
+    snap();
+    await predict();
+
+    //scroll down the screen and try again
+    await swipeup({speed:5000});
+    await picture();
+    await waitfor(2000);
+    snap();
+    await predict();
+
+    //end
+    await picture();
   }
 
   return (<div>
