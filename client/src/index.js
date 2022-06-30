@@ -331,7 +331,7 @@ const  App = ()=>{
     await pressmiddle();
     await zoompicture();
     await waitfor(1000); //camera lag!
-    await snapevery(3000,10,"iphoto")
+    await snapevery(3000,1,"iphoto")
     await(tapback())
     await(tapback())
   }
@@ -386,6 +386,7 @@ const  App = ()=>{
         .query({words})
   }
 
+  
   const requestBounds = async(dataURL)=>{
     console.log("requesting bounds!");
     return new Promise((resolve, reject)=>{
@@ -413,6 +414,22 @@ const  App = ()=>{
     await repeatfor(5, swipeleft)
   }
 
+  const boundscheck = async ()=>{
+    await picture();
+    await waitfor(1000)
+    await snap();
+    const c = canvasRef.current;
+    const ctx = c.getContext("2d");
+		ctx.drawImage(video, 0, 0, 640, 360);
+    const dataURL = c.toDataURL("image/jpeg");
+    const _bounds = await requestBounds(dataURL);
+    const {x,y,w,h} = _bounds;
+    await tap(deltaX(x,y), deltaY(x,y));
+    await tap(deltaX(x+w,y), deltaY(x+w, y));
+    await tap(deltaX(x,y+h), deltaY(x,y+h));
+    await tap(deltaX(x+w,y+h), deltaY(x+w,y+h));
+  }
+
   const predict =  ()=>{
     return new Promise((resolve, reject)=>{
       setTimeout(async ()=>{
@@ -435,7 +452,7 @@ const  App = ()=>{
                 
                 for (let prediction of res.body.predictions || []){
                   const {x,y,width,class:category,height} = prediction;
-                  //if (["iphoto"].indexOf(category) !== -1){
+                  if (["iphoto"].indexOf(category) !== -1){
                     await say(`looking at ${category}`);
                     const px = Math.floor(x + (width / 2));
                     const py = Math.floor(y + (height / 2));
@@ -459,7 +476,7 @@ const  App = ()=>{
                     }
                     await picture(); 
                     
-                 // }
+                  }
                 }
                 resolve();
                 
@@ -531,7 +548,7 @@ const  App = ()=>{
 
   const snapandpredict = async()=>{
 
-    await searchscreen();
+    /*await searchscreen();
     await swiperight();
 
     //have a look on the first screen
@@ -552,11 +569,15 @@ const  App = ()=>{
     //scroll down the screen and try again
     await swipeup({speed:5000});
     await picture();
-    await waitfor(2000);
+    await waitfor(2000);*/
     snap();
     await predict();
 
     //end
+    await picture();
+  }
+
+  const home = async()=>{
     await picture();
   }
 
@@ -572,7 +593,10 @@ const  App = ()=>{
             />
           <canvas ref={canvasRef} id="canvas" width="640" height="360" style={{display:"none"}} />
       </div>
-      <button onClick={snapandpredict}>take a picture</button>
+      <button onClick={snapandpredict}>predict</button>
+      <button onClick={snap}>manual</button>
+      <button onClick={boundscheck}>boundscheck</button>
+      <button onClick={home}>home</button>
       </div>
     );
   

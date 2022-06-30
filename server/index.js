@@ -17,7 +17,7 @@ let model, cocosmodel;
 const weights = 'http://127.0.0.1:8090/model.json';
 const names = ['contacts', 'iphoto', 'isettings', 'imessage', 'whatsapp'];
 let modelWidth, modelHeight;
-let BOUNDS = { x: 18, y: 39, w: 577, h: 292 };
+let BOUNDS = {x:0,y:0,w:0,h:0};//{ x: 18, y: 39, w: 577, h: 292 };
 
 tf.loadGraphModel(weights).then(m => {
     model=m;
