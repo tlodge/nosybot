@@ -104,7 +104,7 @@ const  App = ()=>{
       const py = e.clientY;  
       console.log(px,py, "=>",deltaX(px, py), deltaY(px,py));
       if (e.button == 0){
-        await press(deltaX(px, py), deltaY(px,py));
+        await tap(deltaX(px, py), deltaY(px,py));
       }
       else if (e.button == 1){
         await swipeup({x:deltaX(px, py), y:deltaY(px,py)});
@@ -168,9 +168,23 @@ const  App = ()=>{
     });
   }
 
+  const tap = (dx,dy)=>{
+    return new Promise((resolve, reject)=>{
+      request.get('/tap')
+      .set('content-Type', 'application/json')
+      .query({x:dx, y:dy})
+      .end(function(err, res){
+        if(err){
+          console.log(err);
+        }
+        resolve();
+      });
+    });  
+  }
+
   const press = (dx,dy)=>{
     return new Promise((resolve, reject)=>{
-      request.get('/press')
+      request.get('/tap')
       .set('content-Type', 'application/json')
       .query({x:dx, y:dy})
       .end(function(err, res){
@@ -212,20 +226,7 @@ const  App = ()=>{
     }); 
   }
 
-  const tap = (dx,dy)=>{
-    return new Promise((resolve, reject)=>{
-      request.get('/tap')
-      .set('content-Type', 'application/json')
-      .query({x:dx, y:dy})
-      .end(function(err, res){
-        if(err){
-          console.log(err);
-        }
-        resolve();
-      });
-    });
-    
-  }
+ 
 
   const tapback = (dx,dy)=>{
     return new Promise((resolve, reject)=>{

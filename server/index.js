@@ -289,7 +289,7 @@ app.get('/press', async (req, res)=>{
 
 app.get('/tap', async (req, res)=>{
     const {x,y} = req.query;
-    await print(["G90", `G1 X${x} Y${y} Z20 F20000`,`G0 Z9 F20000`, `G0 Z20 F20000`]);
+    await print(["G90", `G1 X${x} Y${y} Z15 F20000`,`G0 Z10 F30000`,`G0 Z14 F30000`,`G0 Z10 F30000`,`G0 Z14 F30000`]);
     res.send({command:"tap", complete:true});
 });
 

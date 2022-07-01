@@ -6,3 +6,4 @@
  - [] android - how far can we go with this - is there a standard way of accessing images?
  - [] get up to date copy of pi image
  - [] open cv image manipulation
+ - [] use voice assistant to open apps!
