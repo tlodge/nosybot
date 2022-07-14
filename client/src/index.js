@@ -2,11 +2,11 @@ import React, { useEffect, useState, createRef  } from "react";
 import ReactDOM from "react-dom";
 import {useCamera} from './hooks/useCamera';
 import "./styles.css";
-import request from 'superagent';
+import request, { listeners } from 'superagent';
 import FisheyeGl from './fish';
 
-const PHONEBORDERX = 21;
-const PHONEBORDERY = 42;
+const PHONEBORDERX = 0;//21;
+const PHONEBORDERY = 0;//42;
 
     //x = 0 axis
   /*
@@ -44,17 +44,36 @@ const PHONEBORDERY = 42;
     -60 42
     -70 7
   */
+const TAP = "tap";
+const DOUBLETAP = "doubletap";
+const TAPANDSAY = "tapandsay";
+const SWIPELEFT = "swipeleft";
+const SWIPERIGHT = "swiperight";
+const SWIPEUP = "swipeup";
+const SWIPEDOWN = "swipedown";
+
+let elisteners = [];
 
 const  App = ()=>{
-  let distorter, BOUNDS;
+  let distorter, BOUNDS, _mode;
+  _mode="tap";
+  
+  
   const videoRef = createRef();
   const canvasRef = createRef();
   const canvasGLRef = createRef();
   const [video, isCameraInitialised, playing, setPlaying, error] = useCamera(videoRef);
-
+  const [mode, _setMode] = useState(TAP)
  
+  const setMode = (mode)=>{
+    _mode = mode;
+    _setMode(mode);
+  }
+
   const limitY = (y)=>{
-    return Math.max(-82,y)
+    const MAX = -90;
+    console.log("getting limit y, returning", y, "=>", Math.max(MAX,y));
+    return Math.max(MAX,y);
   }
 
   const limitX = (x)=>{
@@ -99,21 +118,58 @@ const  App = ()=>{
   
 
   useEffect(()=>{
-    canvasGLRef.current.addEventListener('mousedown', async function(e) {
+  
+    const listener = async (e)=>{
+    
       const px = e.clientX;
       const py = e.clientY;  
       console.log(px,py, "=>",deltaX(px, py), deltaY(px,py));
-      if (e.button == 0){
-        await tap(deltaX(px, py), deltaY(px,py));
+      console.log("looking up", mode);
+      switch (mode){
+        case TAP:
+          console.log("calling tap");
+          await tap(deltaX(px, py), deltaY(px,py));
+          break;
+        case TAPANDSAY:
+          console.log("calling tap and say");
+          await tapandsay(deltaX(px, py),deltaY(px,py));
+          break;
+        case DOUBLETAP:
+          console.log("calling dbltap");
+          await doubletap(deltaX(px, py), deltaY(px,py));
+          break;
+        case SWIPELEFT:
+          console.log("calling swipe left");
+          await swipeleft({x:deltaX(px, py), y:deltaY(px,py)});
+          break;
+        case SWIPERIGHT:
+          console.log("calling swipe right");
+          await swiperight({x:deltaX(px, py), y:deltaY(px,py)});
+          break;
+        case SWIPEUP:
+          console.log("calling swipe up");
+          await swipeup({x:deltaX(px, py), y:deltaY(px,py)});
+          break;
+        case SWIPEDOWN:
+          console.log("calling swipe down");
+          await swipedown({x:deltaX(px, py), y:deltaY(px,py)});
+          break;
+       
       }
-      else if (e.button == 1){
-        await swipeup({x:deltaX(px, py), y:deltaY(px,py)});
-      }
-    })
-  },[]);
+  }
+  
+  elisteners.forEach(l=>canvasGLRef.current.removeEventListener('mousedown', l))
+  elisteners = []   
+  elisteners.push(listener)
+  canvasGLRef.current.addEventListener('mousedown', listener);
+    
+      
+  
+  },[mode]);
 
+ 
   const swipeup = ({x:dx,y:dy,speed=20000})=>{
-    const query = dx && dy ? {x:dx, y:dy, speed} : {speed};
+    const query = dx && dy ? {dx, dy, speed} : {speed};
     return new Promise((resolve, reject)=>{
       request.get('/swipeup')
       .set('content-Type', 'application/json')
@@ -128,7 +184,8 @@ const  App = ()=>{
   }
   
   const swipedown = ({x:dx,y:dy, speed=20000})=>{
-    const query = dx && dy ? {x:dx, y:dy, speed} : {speed};
+    console.log("in swip down!!")
+    const query = dx && dy ? {dx, dy, speed} : {speed};
     return new Promise((resolve, reject)=>{
       request.get('/swipedown')
       .set('content-Type', 'application/json')
@@ -142,10 +199,12 @@ const  App = ()=>{
     });
   }
 
-  const swiperight = ()=>{
+  const swiperight = ({x:dx,y:dy, speed=20000})=>{
+    const query = dx && dy ? {dx, dy, speed} : {speed};
     return new Promise((resolve, reject)=>{
       request.get('/swiperight')
       .set('content-Type', 'application/json')
+      .query(query)
       .end(function(err, res){
         if(err){
           console.log(err);
@@ -155,10 +214,12 @@ const  App = ()=>{
     });
   }
 
-  const swipeleft = ()=>{
+  const swipeleft = ({x:dx,y:dy, speed=20000})=>{
+    const query = dx && dy ? {dx, dy, speed} : {speed};
     return new Promise((resolve, reject)=>{
       request.get('/swipeleft')
       .set('content-Type', 'application/json')
+      .query(query)
       .end(function(err, res){
         if(err){
           console.log(err);
@@ -166,11 +227,40 @@ const  App = ()=>{
         resolve();
       });
     });
+  }
+
+ 
+  const tapandsay = (dx,dy, words="whatsapp")=>{
+    return new Promise((resolve, reject)=>{
+      request.get('/tapandsay')
+      .set('content-Type', 'application/json')
+      .query({x:dx, y:dy, words})
+      .end(function(err, res){
+        if(err){
+          console.log(err);
+        }
+        resolve();
+      });
+    });  
   }
 
   const tap = (dx,dy)=>{
     return new Promise((resolve, reject)=>{
       request.get('/tap')
+      .set('content-Type', 'application/json')
+      .query({x:dx, y:dy})
+      .end(function(err, res){
+        if(err){
+          console.log(err);
+        }
+        resolve();
+      });
+    });  
+  }
+
+  const doubletap = (dx,dy)=>{
+    return new Promise((resolve, reject)=>{
+      request.get('/doubletap')
       .set('content-Type', 'application/json')
       .query({x:dx, y:dy})
       .end(function(err, res){
@@ -519,6 +609,23 @@ const  App = ()=>{
     await picture();
   }
 
+  const train = async (category)=>{
+    await picture();
+    await waitfor(2000);
+    await snap();
+    await waitfor(1000);
+    const dataURL = distorter.getImage("image/jpeg");
+    return new Promise((resolve, reject)=>{
+      request
+        .post('/peek')
+        .set('content-Type', 'application/json')
+        .send({image:dataURL, category})
+        .end(async function(err, res){
+          
+          resolve();
+        })
+    })
+  }
   const snap =  ()=>{
 
     const c = canvasRef.current;
@@ -582,6 +689,8 @@ const  App = ()=>{
     await picture();
   }
 
+  
+
   return (<div>
       <div> 
           <canvas ref={canvasGLRef} id="canvas" width="640" height="360" /*style={{display:"none"}}*/ />
@@ -594,10 +703,23 @@ const  App = ()=>{
             />
           <canvas ref={canvasRef} id="canvas" width="640" height="360" style={{display:"none"}} />
       </div>
+
+      <div>{mode}</div>
       <button onClick={snapandpredict}>predict</button>
-      <button onClick={snap}>manual</button>
+      <button onClick={snap}>snap</button>
       <button onClick={boundscheck}>boundscheck</button>
       <button onClick={home}>home</button>
+      <button onClick={()=>train("search")}>train</button>
+
+      <button onClick={()=>setMode(TAP)}>{`${TAP} mode`}</button>
+      <button onClick={()=>setMode(DOUBLETAP)}>{`${DOUBLETAP} mode`}</button>
+      <button onClick={()=>setMode(TAPANDSAY)}>{`${TAPANDSAY} mode`}</button>
+      <button onClick={()=>setMode(SWIPELEFT)}>{`${SWIPELEFT} mode`}</button>
+      <button onClick={()=>setMode(SWIPERIGHT)}>{`${SWIPERIGHT} mode`}</button>
+      <button onClick={()=>setMode(SWIPEUP)}>{`${SWIPEUP} mode`}</button>
+      <button onClick={()=>setMode(SWIPEDOWN)}>{`${SWIPEDOWN} mode`}</button>
+      
+
       </div>
     );
   

@@ -6,7 +6,8 @@ import * as tf from '@tensorflow/tfjs-node'
 import fs from 'fs'
 import request  from 'superagent'
 import cocoSsd from '@tensorflow-models/coco-ssd';
-import {deltaX, deltaY} from './utils/coords.js';
+import {deltaX, deltaY, translateBounds} from './utils/coords.js';
+import { waitForDebugger } from 'inspector'
 
 const app = express();
 app.use(bodyParser.json({limit:'25mb'}))
@@ -61,9 +62,22 @@ const ZOOMPICTURE = ["G1 Z110 F5000","G1 X1 F5000", "G1 Y1 F5000"];
 let printPosition = 1;
 let sp = undefined;
 let setup = false;
-const print = (_commands)=>{
+let _printing= false;
 
-   return new Promise((resolve, reject)=>{
+const setprinting = (value)=>{
+    _printing = value;
+    console.log("set printing", _printing);
+}
+
+const print = (_commands)=>{
+    //guard, as if open serial port twice, will lose comms with printer
+    if (_printing)
+        return;
+   
+    setprinting(true); 
+   
+    return new Promise((resolve, reject)=>{
+        
         sp = new SerialPort({
             path: '/dev/ttyUSB0',
             autoOpen: false,
@@ -94,11 +108,13 @@ const print = (_commands)=>{
             sp.on('data', function(data) {
                 //console.log(data.toString());
                 if (data.indexOf("wait") != -1){
-                    if (printPosition >= printCommands.length){
-                       
+                    if (printPosition >= printCommands.length){ 
                         sp.close();
-                        resolve();
-                        return;
+                        setTimeout(()=>{
+                            setprinting(false)
+                            resolve();
+                            return;
+                        },50);
                     }
                 }
                 if(data.indexOf("ok") != -1 || data == "start\r"){
@@ -109,7 +125,7 @@ const print = (_commands)=>{
                             printLine(reconstruct(printCommands[printPosition]));
                         },50);
                     }else{
-                        console.log("finished sending commands");    
+                        
                     }
                 } else {
                     //console.log("Nope", data.toString())
@@ -141,8 +157,23 @@ function printerCommand(comm){
     });
 
 }
+
+function waitfor(ms){ 
+    return new Promise((resolve, reject)=>{
+       setTimeout(resolve, ms);
+    });
+}
+
 app.use(express.static('public'));
 
+app.use((req, res, next) => {
+    if (_printing){
+        console.log("ignoring command as printing")
+        res.send({error:"busy",complete:false});
+        return;
+    }
+    next()
+})
 app.get('/', (req,res)=>{
     res.send("ROBOT DATA CAPTURER")
 });
@@ -287,65 +318,79 @@ app.get('/press', async (req, res)=>{
     res.send({command:"press", complete:true});
 });
 
-app.get('/tap', async (req, res)=>{
+app.get('/doubletap', async (req, res)=>{
     const {x,y} = req.query;
     await print(["G90", `G1 X${x} Y${y} Z15 F20000`,`G0 Z10 F30000`,`G0 Z14 F30000`,`G0 Z10 F30000`,`G0 Z14 F30000`]);
+    res.send({command:"doubletap", complete:true});
+});
+
+app.get('/tap', async (req, res)=>{
+    const {x,y} = req.query;
+    console.log("tapping", x, y);
+    await print(["G90", `G1 X${x} Y${y} Z15 F20000`,`G0 Z10 F30000`,`G0 Z14 F30000`]);
+    res.send({command:"tap", complete:true});
+});
+
+app.get('/tapandsay', async (req, res)=>{
+    const {x,y,words} = req.query;
+    await print(["G90", `G1 X${x} Y${y} Z15 F20000`,`G0 Z10 F30000`,`G0 Z14 F30000`,`G0 Z10 F30000`,`G0 Z14 F30000`]);
+    console.log("getting flask to say", words);
+    await waitfor(2000)
+    await say(words);
     res.send({command:"tap", complete:true});
 });
 
 //either swipe from passed in coords or swipe from middle
 app.get('/swipeup', async (req, res)=>{
-    const {x:xb,y:yb,w,h} = BOUNDS;
-    const dx = deltaX((xb+w)/2,(yb+h)/2);
-    const dy = deltaY((xb+w)/2,(yb+h)/2);
-    const {x=dx,y=dy, speed=20000} = req.query;
-    console.log("-->in swipe up", x, y, speed);
-    await print(["G90", `G1 X${x} Y${y} Z15 F20000`,`G1 Z9 F20000`,`G1 X${x} Y${Math.max(-90,y-30)} Z15 F${speed}`]);
-    res.send({command:"swipe", complete:true});
+
+    const {dx:x,dy:y, speed=20000} = req.query;
+    console.log("BOUNDS", BOUNDS);
+    console.log(`SWIPE UP GOING FROM ${x},${y}=>${x},${y-50}`);
+    
+    await print(["G90", `G1 X${x} Y${y} Z20 F20000`,`G0 Z9 F20000`, `G1 X${x} Y${Number(y)-50} Z9 F20000`, `G0 Z20 F20000`]);
+    
+    res.send({command:"swipeup", complete:true});
 });
-
-//either swipe from passed in coords or swipe from middle
-/*app.get('/swipedown', async (req, res)=>{
-    const {x:xb,y:yb,w,h} = BOUNDS;
-    const dx = deltaX((xb+w)/2,(yb+h)/2);
-    const dy = deltaY((xb+w)/2,(yb+h)/2);
-    const {x=dx,y=dy, speed=20000} = req.query;
-    console.log("-->in swipe down", x, y, speed);
-    await print(["G90", `G1 X${x} Y${y} Z15 F20000`,`G1 Z9 F20000`,`G1 X${x} Y${Math.min(50,x+30)} Z15 F${speed}`]);
-    res.send({command:"swipe", complete:true});
-});*/
-
-app.get('/swiperight', async (req, res)=>{
-    const {x,y,w,h} = BOUNDS;
-    const dx = deltaX((x+w)/2,(y+h)/2);
-    const dy = deltaY((x+w)/2,(y+h)/2);
-    console.log(dx, dy);
-    if (w>0 && h > 0){
-        await print(["G90", `G1 X${dx} Y${dy} Z20 F20000`,`G0 Z9 F20000`, `G1 X${dx+40} Y${dy} Z9 F20000`, `G0 Z20 F20000`]);
-    }
-    res.send({command:"press", complete:true});
-});
-
-app.get('/swipeleft', async (req, res)=>{
-    const {x,y,w,h} = BOUNDS;
-    const dx = deltaX((x+w)/2,(y+h)/2);
-    const dy = deltaY((x+w)/2,(y+h)/2);
-    console.log(dx, dy);
-    if (w>0 && h > 0){
-        await print(["G90", `G1 X${dx+20} Y${dy} Z20 F20000`,`G0 Z9 F20000`, `G1 X${dx-20} Y${dy} Z9 F20000`, `G0 Z20 F20000`]);
-    }
-    res.send({command:"press", complete:true});
-});
-
 
 app.get('/swipedown', async (req, res)=>{
-    const {x:xb,y:yb,w,h} = BOUNDS;
-    const dx = deltaX((xb+w)/2,(yb+h)/2);
-    const dy = deltaY((xb+w)/2,(yb+h)/2);
-    const {x=dx,y=dy, speed=20000} = req.query;
-    await print(["G90", `G1 X${x} Y${y} Z15 F20000`,`G1 Z9 F20000`,`G1 X${x} Y${Math.min(50,x+30)} Z15 F20000`]);
-    res.send({command:"swipe", complete:true});
+    const {dx:x,dy:y, speed=20000} = req.query; 
+    const {minX, minY, maxX, maxY} = translateBounds(BOUNDS);  
+    console.log("swipe down", x, y);
+    console.log("bounds minx ", minX, " miny ", minY, "maxX", maxX, "maxY", maxY);
+    console.log(`SWIPE DOWN GOING FROM ${x},${y}=>${x},${Math.min(Number(y)+20, maxY)}`);
+    //await print(["G90", `G1 X${x} Y${Math.max(y-50,minY)} Z20 F20000`,`G0 Z9 F20000`, `G1 X${x} Y${Math.min(y, maxY)} Z9 F20000`, `G0 Z20 F20000`]);
+    await print(["G90", `G1 X${x} Y${y} Z20 F20000`,`G0 Z9 F20000`, `G1 X${x} Y${Math.min(Number(y)+40, maxY)} Z9 F20000`, `G0 Z20 F20000`]);
+    
+    res.send({command:"swipedown", complete:true});
 });
+
+
+
+app.get('/swipeleft', async (req, res)=>{
+    const {dx:x,dy:y, speed=20000} = req.query;
+    const {minX, minY, maxX, maxY} = translateBounds(BOUNDS);    
+    console.log("swipe left", x, y);
+    console.log(`SWIPE LEFT GOING FROM ${x-40},${y}=>${x},${y}`);
+    console.log("BOUNDS", BOUNDS);
+    console.log("bounds minx ", minX, " miny ", minY, "maxX", maxX, "maxY", maxY);
+    await print(["G90", `G1 X${Math.max(x, minX)} Y${y} Z20 F20000`,`G0 Z9 F20000`, `G1 X${Math.min(Number(x)+40,maxX)} Y${y} Z9 F20000`, `G0 Z20 F20000`]);
+    
+    res.send({command:"press", complete:true});
+});
+
+app.get('/swiperight', async (req, res)=>{
+    const {dx:x,dy:y, speed=20000} = req.query;
+    const {minX, minY, maxX, maxY} = translateBounds(BOUNDS); 
+    console.log("swipe right", x, y);
+    console.log("BOUNDS", BOUNDS);
+    console.log(`SWIPE RIGHT GOING FROM ${x},${y}=>${x-40},${y}`);
+    console.log("bounds minx ", minX, " miny ", minY, "maxX", maxX, "maxY", maxY);
+    await print(["G90", `G1 X${Math.min(Number(x),maxX)} Y${y} Z20 F20000`,`G0 Z9 F20000`, `G1 X${Math.max(Number(x-40), minX)} Y${y} Z9 F20000`, `G0 Z20 F20000`]);
+    res.send({command:"press", complete:true});
+});
+
+
+
 
 app.get('/home', async (req,res)=>{
     await print(HOME)

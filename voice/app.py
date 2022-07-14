@@ -84,6 +84,6 @@ def bounding_box():
 
     x,y,w,h = cv2.boundingRect(maxcont)
     print ((x,y,w,h))
-    return jsonify({"x":x,"y":y,"w":w,"h":h})
+    return jsonify({"x":x+5,"y":y+20,"w":w-5,"h":h-25})
   except:
      return jsonify({"x":0,"y":0,"w":0,"h":0})
