@@ -16,7 +16,8 @@ const PORT = 8090;
 let model, cocosmodel;
 
 const weights = 'http://127.0.0.1:8090/model.json';
-const names = ['contacts', 'iphoto', 'isettings', 'imessage', 'whatsapp'];
+//const names = ['contacts', 'iphoto', 'isettings', 'imessage', 'whatsapp', 'mic', 'search'];
+const names = ['back', 'iphone', 'iphotos', 'isettings', 'isms', 'mic', 'search','whatsapp'];
 let modelWidth, modelHeight;
 let BOUNDS = {x:0,y:0,w:0,h:0};//{ x: 18, y: 39, w: 577, h: 292 };
 
@@ -66,7 +67,6 @@ let _printing= false;
 
 const setprinting = (value)=>{
     _printing = value;
-    console.log("set printing", _printing);
 }
 
 const print = (_commands)=>{
@@ -237,10 +237,10 @@ app.get('/say', async (req, res)=>{
 
 app.get('/tapback', async(req, res)=>{
     const {x,y,w,h} = { x: 18, y: 39, w: 577, h: 292 };
-    console.log("bounds ate", x,y,w,h);
+   
     const dx = deltaX(x,y+h);
     const dy = deltaY(x,y+h);
-    console.log(dx, dy);
+   
     if (w>0 && h > 0){
         await print(["G90", `G1 X${dx-8} Y${dy+16} Z20 F20000`,`G0 Z9 F20000`, `G4 P100`, `G0 Z20 F20000`]);
     }
@@ -249,10 +249,10 @@ app.get('/tapback', async(req, res)=>{
 
 app.get('/pressmiddle', async(req, res)=>{
     const {x,y,w,h} = BOUNDS;
-    console.log("bounds ate", x,y,w,h);
+   
     const dx = deltaX((x+w)/2,(y+h)/2);
     const dy = deltaY((x+w)/2,(y+h)/2);
-    console.log(dx, dy);
+    
     if (w>0 && h > 0){
         await print(["G90", `G1 X${dx+10} Y${dy} Z20 F20000`,`G0 Z9 F20000`, `G4 P10`, `G0 Z20 F20000`]);
     }
@@ -269,7 +269,7 @@ app.post('/bounds', async (req, res)=>{
     const response = await request.get(`http://localhost:5000?p=bounds`);
     
     const {body:{x,y,w,h}} = response;
-    console.log("---->set bounds to", {x,y,w,h})
+    //console.log("---->set bounds to", {x,y,w,h})
     BOUNDS = {x,y,w,h};
     res.send({bounds:{x,y,w,h}});
 });
@@ -286,6 +286,7 @@ app.post('/predict', async (req, res)=>{
     const {body:{x,y,w,h}} = response;
 	const [num, boxes, scores, classes] = await predict(buf,name);   
     const predictions = [];
+    console.log("clases", classes);
 
     for (let i = 0; i < num; ++i){
         let [x1, y1, x2, y2] = boxes.slice(i * 4, (i + 1) * 4);
@@ -296,6 +297,7 @@ app.post('/predict', async (req, res)=>{
         y2 *= 360;
         const width = x2 - x1;
         const height = y2 - y1; 
+        console.log("classes", i, " is ", classes[i]);
         predictions.push({x:x1, y:y1, width, height, class:names[classes[i]], score:scores[i].toFixed(2)});
     }
     console.log(JSON.stringify(predictions,null,4));
@@ -326,16 +328,16 @@ app.get('/doubletap', async (req, res)=>{
 
 app.get('/tap', async (req, res)=>{
     const {x,y} = req.query;
-    console.log("tapping", x, y);
+    //console.log("tapping", x, y);
     await print(["G90", `G1 X${x} Y${y} Z15 F20000`,`G0 Z10 F30000`,`G0 Z14 F30000`]);
     res.send({command:"tap", complete:true});
 });
 
 app.get('/tapandsay', async (req, res)=>{
     const {x,y,words} = req.query;
-    await print(["G90", `G1 X${x} Y${y} Z15 F20000`,`G0 Z10 F30000`,`G0 Z14 F30000`,`G0 Z10 F30000`,`G0 Z14 F30000`]);
-    console.log("getting flask to say", words);
-    await waitfor(2000)
+    await print(["G90", `G1 X${x} Y${y} Z15 F20000`,`G0 Z10 F30000`,`G0 Z14 F30000`]);//,`G0 Z10 F30000`,`G0 Z14 F30000`]);
+    //console.log("getting flask to say", words);
+    await waitfor(500)
     await say(words);
     res.send({command:"tap", complete:true});
 });
@@ -344,8 +346,8 @@ app.get('/tapandsay', async (req, res)=>{
 app.get('/swipeup', async (req, res)=>{
 
     const {dx:x,dy:y, speed=20000} = req.query;
-    console.log("BOUNDS", BOUNDS);
-    console.log(`SWIPE UP GOING FROM ${x},${y}=>${x},${y-50}`);
+    //console.log("BOUNDS", BOUNDS);
+    //console.log(`SWIPE UP GOING FROM ${x},${y}=>${x},${y-50}`);
     
     await print(["G90", `G1 X${x} Y${y} Z20 F20000`,`G0 Z9 F20000`, `G1 X${x} Y${Number(y)-50} Z9 F20000`, `G0 Z20 F20000`]);
     
@@ -355,9 +357,9 @@ app.get('/swipeup', async (req, res)=>{
 app.get('/swipedown', async (req, res)=>{
     const {dx:x,dy:y, speed=20000} = req.query; 
     const {minX, minY, maxX, maxY} = translateBounds(BOUNDS);  
-    console.log("swipe down", x, y);
-    console.log("bounds minx ", minX, " miny ", minY, "maxX", maxX, "maxY", maxY);
-    console.log(`SWIPE DOWN GOING FROM ${x},${y}=>${x},${Math.min(Number(y)+20, maxY)}`);
+    //console.log("swipe down", x, y);
+   // console.log("bounds minx ", minX, " miny ", minY, "maxX", maxX, "maxY", maxY);
+    //console.log(`SWIPE DOWN GOING FROM ${x},${y}=>${x},${Math.min(Number(y)+20, maxY)}`);
     //await print(["G90", `G1 X${x} Y${Math.max(y-50,minY)} Z20 F20000`,`G0 Z9 F20000`, `G1 X${x} Y${Math.min(y, maxY)} Z9 F20000`, `G0 Z20 F20000`]);
     await print(["G90", `G1 X${x} Y${y} Z20 F20000`,`G0 Z9 F20000`, `G1 X${x} Y${Math.min(Number(y)+40, maxY)} Z9 F20000`, `G0 Z20 F20000`]);
     
@@ -369,10 +371,10 @@ app.get('/swipedown', async (req, res)=>{
 app.get('/swipeleft', async (req, res)=>{
     const {dx:x,dy:y, speed=20000} = req.query;
     const {minX, minY, maxX, maxY} = translateBounds(BOUNDS);    
-    console.log("swipe left", x, y);
-    console.log(`SWIPE LEFT GOING FROM ${x-40},${y}=>${x},${y}`);
-    console.log("BOUNDS", BOUNDS);
-    console.log("bounds minx ", minX, " miny ", minY, "maxX", maxX, "maxY", maxY);
+    //console.log("swipe left", x, y);
+   // console.log(`SWIPE LEFT GOING FROM ${x-40},${y}=>${x},${y}`);
+    //console.log("BOUNDS", BOUNDS);
+    //console.log("bounds minx ", minX, " miny ", minY, "maxX", maxX, "maxY", maxY);
     await print(["G90", `G1 X${Math.max(x, minX)} Y${y} Z20 F20000`,`G0 Z9 F20000`, `G1 X${Math.min(Number(x)+40,maxX)} Y${y} Z9 F20000`, `G0 Z20 F20000`]);
     
     res.send({command:"press", complete:true});
@@ -381,10 +383,10 @@ app.get('/swipeleft', async (req, res)=>{
 app.get('/swiperight', async (req, res)=>{
     const {dx:x,dy:y, speed=20000} = req.query;
     const {minX, minY, maxX, maxY} = translateBounds(BOUNDS); 
-    console.log("swipe right", x, y);
-    console.log("BOUNDS", BOUNDS);
-    console.log(`SWIPE RIGHT GOING FROM ${x},${y}=>${x-40},${y}`);
-    console.log("bounds minx ", minX, " miny ", minY, "maxX", maxX, "maxY", maxY);
+    //console.log("swipe right", x, y);
+    //console.log("BOUNDS", BOUNDS);
+    //console.log(`SWIPE RIGHT GOING FROM ${x},${y}=>${x-40},${y}`);
+    //console.log("bounds minx ", minX, " miny ", minY, "maxX", maxX, "maxY", maxY);
     await print(["G90", `G1 X${Math.min(Number(x),maxX)} Y${y} Z20 F20000`,`G0 Z9 F20000`, `G1 X${Math.max(Number(x-40), minX)} Y${y} Z9 F20000`, `G0 Z20 F20000`]);
     res.send({command:"press", complete:true});
 });
