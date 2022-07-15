@@ -96,7 +96,7 @@ const  App = ()=>{
       if (x <= 483) return limitY(20 +  Math.floor(((x-445)/38)*10)); //483-445
       if (x <= 521) return limitY(30 +  Math.floor(((x-483)/38)*10)); //521-483  
       if (x <= 557) return limitY(40 +  Math.floor(((x-521)/36)*10)); //557-521  
-      if (x <= 591) return limitY(52 +  Math.floor(((x-557)/34)*10)); //591-557
+      if (x <= 591) return limitY(50 +  Math.floor(((x-557)/34)*10)); //591-557
       if (x <= 624) return limitY(60 +  Math.floor(((x-591)/33)*10)); //624-591
       if (x > 624)  return limitY(70 +  Math.floor(((x-624)/15)*6));  //639-624
     }
@@ -105,13 +105,13 @@ const  App = ()=>{
       console.log("delta X", y);
       if (y >  346) return 21;
       if (y >= 309) return limitX(10  + Math.floor(((y-309)/37)*10)); //346-309
-      if (y >= 269) return limitX(0   + Math.floor(((y-269)/40)*10)); //309-269
+      if (y >= 269) return limitX(5   + Math.floor(((y-269)/40)*10)); //309-269
       if (y >= 230) return limitX(-8   + Math.floor(((y-230)/39)*10));//269-230
-      if (y >= 191) return limitX(-18   + Math.floor(((y-191)/39)*10));//230-191
-      if (y >= 153) return limitX(-30   + Math.floor(((y-153)/38)*10));//191-153
-      if (y >= 115) return limitX(-38   + Math.floor(((y-115)/38)*10));//153-115
-      if (y >= 76)  return limitX(-48   + Math.floor(((y-76)/39)*10));//115-76
-      if (y >= 42)  return limitX(-58   + Math.floor(((y-42)/34)*10));//76-42
+      if (y >= 191) return limitX(-17   + Math.floor(((y-191)/39)*10));//230-191
+      if (y >= 153) return limitX(-28   + Math.floor(((y-153)/38)*10));//191-153
+      if (y >= 115) return limitX(-36   + Math.floor(((y-115)/38)*10));//153-115
+      if (y >= 76)  return limitX(-46   + Math.floor(((y-76)/39)*10));//115-76
+      if (y >= 42)  return limitX(-56   + Math.floor(((y-42)/34)*10));//76-42
       if (y < 42)    return limitX(-68   + Math.floor(((y-7)/35)*10));//42-7
     }
 
@@ -543,16 +543,19 @@ const  App = ()=>{
                 
                 for (let prediction of res.body.predictions || []){
                   const {x,y,width,class:category,height} = prediction;
-                  if (["iphoto"].indexOf(category) !== -1){
-                    await say(`looking at ${category}`);
+                  if (["mic", "back"].indexOf(category) !== -1){
+                    //await say(`looking at ${category}`);
                     const px = Math.floor(x + (width / 2));
                     const py = Math.floor(y + (height / 2));
                     //open the app
-                    console.log("px", px, "py", py)
-                  
-                    await press(deltaX(px,py), deltaY(px,py));
-                    
-                    await peek(category);
+                   
+                    if (category=="mic"){
+                      await tapandsay(deltaX(px,py), deltaY(px,py), "what app");
+                    }
+                    if (category=="back"){
+                      await tap(deltaX(px,py), deltaY(px,py));
+                    }
+                    /*await peek(category);
 
                     if (category === "iphoto"){
                       await iphoto({x:_x,y:_y,w:_w,h:_h});
@@ -560,14 +563,14 @@ const  App = ()=>{
                     if (category === "contacts"){
                       await contacts({x:_x,y:_y,w:_w,h:_h});
                     }
-
+                    */
                     //close app
-                    if (!(_x==0 && _y==0 && _w==0 && _h==0)){
-                      await swipeup({x:deltaX((_x+_w)-35,(_y+_h)/2),y:deltaY((_x+_w)-35,(_y+_h)/2)});
-                    }
+                    //if (!(_x==0 && _y==0 && _w==0 && _h==0)){
+                    //  await swipeup({x:deltaX((_x+_w)-35,(_y+_h)/2),y:deltaY((_x+_w)-35,(_y+_h)/2)});
+                    //}
                     await picture(); 
                     
-                  }
+                  } //if iphoto
                 }
                 resolve();
                 
