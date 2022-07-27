@@ -8,42 +8,7 @@ import FisheyeGl from './fish';
 const PHONEBORDERX = 0;//21;
 const PHONEBORDERY = 0;//42;
 
-    //x = 0 axis
-  /*
-    0,-95 0,   269
-    0,-90 13,  270
-    0,-80 43,  271
-    0,-70 78,  271
-    0,-60 116, 271
-    0,-50 154, 271
-    0,-40 192, 271
-    0,-30 235, 271
-    0,-20 276, 271
-    0,-10 319, 271
-    0,0   361, 274
-    0,10  404, 274 
-    0,20  445, 274
-    0,30  483, 273
-    0,40  521, 273
-    0,50  557, 272
-    0,60  591, 272
-    0,70  624, 272
-    0,76  639, 270
-  */
-
-  //y=270 axis
-  /*  
-    20  346
-    10  309
-    0   269
-    -10 230
-    -20 191
-    -30 153
-    -40 115
-    -50 76
-    -60 42
-    -70 7
-  */
+  
 const TAP = "tap";
 const DOUBLETAP = "doubletap";
 const TAPANDSAY = "tapandsay";
@@ -53,6 +18,8 @@ const SWIPEUP = "swipeup";
 const SWIPEDOWN = "swipedown";
 
 let elisteners = [];
+const xs = [13,43,78,116,154,192,235,276,319,361,404,445,483,521,557,591,624];
+const ys = [346,309,269,230,191,153,115,76,42];
 
 const  App = ()=>{
   let distorter, BOUNDS, _mode;
@@ -65,6 +32,37 @@ const  App = ()=>{
   const [video, isCameraInitialised, playing, setPlaying, error] = useCamera(videoRef);
   const [mode, _setMode] = useState(TAP)
  
+  const [xdeltas, setXdeltas] = useState([0,10,5,-8,-17,-28,-36,-46,-56,-68]);
+  const [ydeltas, setYdeltas] = useState([-95,-90,-80,-70,-60,-50,-40,-30,-20, -10, 0,10,20,30,40,50,60,70]);
+ 
+  const [hadjust, setHadjust] = useState(0);
+  const [vadjust, setVadjust] = useState(0);
+
+  const [v, setV] = useState();
+  const [h, setH] = useState();
+
+  const _setHadjust = (value)=>{
+    try{
+      setHadjust(value);
+      calibrate();
+    }catch(err){
+      
+    }
+   
+  }
+
+  const _setVadjust = (value)=>{
+    try{
+      setVadjust(value);
+      calibrate();
+    
+    }catch(err){
+
+    }
+    
+  }
+
+
   const setMode = (mode)=>{
     _mode = mode;
     _setMode(mode);
@@ -72,50 +70,96 @@ const  App = ()=>{
 
   const limitY = (y)=>{
     const MAX = -90;
-    console.log("getting limit y, returning", y, "=>", Math.max(MAX,y));
     return Math.max(MAX,y);
   }
 
   const limitX = (x)=>{
     return Math.max(-65,x);
   }
+
+  
+  //This provides the  <----> on the (landscape) phone (horizontal)
   const deltaY = (x,y)=>{
       //console.log("delta Y", x);
-      if (x <= 13)  return limitY(-95 + Math.floor((x/13)*5)); //13-0
-      if (x <= 43)  return limitY(-90 + Math.floor(((x-13)/30)*10)); //43-13
-      if (x <= 78)  return limitY(-80 + Math.floor(((x-43)/35)*10)); //78-43
-      if (x <= 116) return limitY(-70 + Math.floor(((x-78)/38)*10)); //116-78
-      if (x <= 154) return limitY(-60 + Math.floor(((x-116)/38)*10)); //154-116
-      if (x <= 192) return limitY(-50 + Math.floor(((x-154)/38)*10)); //192-154
-      if (x <= 235) return limitY(-40 + Math.floor(((x-192)/43)*10)); //235-192
-      if (x <= 276) return limitY(-30 + Math.floor(((x-235)/41)*10)); //276-235
-      if (x <= 319) return limitY(-20 + Math.floor(((x-276)/43)*10)); //319-276
-      if (x <= 361) return limitY(-10 + Math.floor(((x-319)/41)*10)); //361-319
-      if (x <= 404) return limitY(0 +   Math.floor(((x-361)/42)*10)); //404-361
-      if (x <= 445) return limitY(10 +  Math.floor(((x-404)/41)*10)); //445-404
-      if (x <= 483) return limitY(20 +  Math.floor(((x-445)/38)*10)); //483-445
-      if (x <= 521) return limitY(30 +  Math.floor(((x-483)/38)*10)); //521-483  
-      if (x <= 557) return limitY(40 +  Math.floor(((x-521)/36)*10)); //557-521  
-      if (x <= 591) return limitY(50 +  Math.floor(((x-557)/34)*10)); //591-557
-      if (x <= 624) return limitY(60 +  Math.floor(((x-591)/33)*10)); //624-591
-      if (x > 624)  return limitY(70 +  Math.floor(((x-624)/15)*6));  //639-624
+      console.log("ydeltas for", x + " is ");
+      if (x <= 13)  console.log(ydeltas[0]);
+      else if (x <= 43)  console.log(ydeltas[1]);
+      else if (x <= 78)  console.log(ydeltas[2]);
+      else if (x <= 116) console.log(ydeltas[3]);
+      else if (x <= 154) console.log(ydeltas[4]);
+      else if (x <= 192) console.log(ydeltas[5]);
+      else if (x <= 235) console.log(ydeltas[6]);
+      else if (x <= 276) console.log(ydeltas[7]);
+      else if (x <= 319) console.log(ydeltas[8]);
+      else if (x <= 361) console.log(ydeltas[9]);
+      else if (x <= 404) console.log(ydeltas[10]);
+      else if (x <= 445) console.log(ydeltas[11]);
+      else if (x <= 483) console.log(ydeltas[12]);
+      else if (x <= 521) console.log(ydeltas[13]);
+      else if (x <= 557) console.log(ydeltas[14]);
+      else if (x <= 591) console.log(ydeltas[15]);
+      else if (x <= 624) console.log(ydeltas[16]);
+      else if (x > 624) console.log(ydeltas[17])
+
+      if (x <= 13)  return limitY(ydeltas[0] + Math.floor((x/13)*5)); //13-0
+      if (x <= 43)  return limitY(ydeltas[1] + Math.floor(((x-13)/30)*10)); //43-13
+      if (x <= 78)  return limitY(ydeltas[2] + Math.floor(((x-43)/35)*10)); //78-43
+      if (x <= 116) return limitY(ydeltas[3] + Math.floor(((x-78)/38)*10)); //116-78
+      if (x <= 154) return limitY(ydeltas[4] + Math.floor(((x-116)/38)*10)); //154-116
+      if (x <= 192) return limitY(ydeltas[5] + Math.floor(((x-154)/38)*10)); //192-154
+      if (x <= 235) return limitY(ydeltas[6] + Math.floor(((x-192)/43)*10)); //235-192
+      if (x <= 276) return limitY(ydeltas[7] + Math.floor(((x-235)/41)*10)); //276-235
+      if (x <= 319) return limitY(ydeltas[8] + Math.floor(((x-276)/43)*10)); //319-276
+      if (x <= 361) return limitY(ydeltas[9] + Math.floor(((x-319)/41)*10)); //361-319
+      if (x <= 404) return limitY(ydeltas[10] +  Math.floor(((x-361)/42)*10)); //404-361
+      if (x <= 445) return limitY(ydeltas[11] +  Math.floor(((x-404)/41)*10)); //445-404
+      if (x <= 483) return limitY(ydeltas[12] +  Math.floor(((x-445)/38)*10)); //483-445
+      if (x <= 521) return limitY(ydeltas[13] +  Math.floor(((x-483)/38)*10)); //521-483  
+      if (x <= 557) return limitY(ydeltas[14] +  Math.floor(((x-521)/36)*10)); //557-521  
+      if (x <= 591) return limitY(ydeltas[15] +  Math.floor(((x-557)/34)*10)); //591-557
+      if (x <= 624) return limitY(ydeltas[16] +  Math.floor(((x-591)/33)*10)); //624-591
+      if (x > 624)  return limitY(ydeltas[17] +  Math.floor(((x-624)/15)*6));  //639-624
     }
 
-    const deltaX = (x,y)=>{
-      console.log("delta X", y);
-      if (y >  346) return 21;
-      if (y >= 309) return limitX(10  + Math.floor(((y-309)/37)*10)); //346-309
-      if (y >= 269) return limitX(5   + Math.floor(((y-269)/40)*10)); //309-269
-      if (y >= 230) return limitX(-8   + Math.floor(((y-230)/39)*10));//269-230
-      if (y >= 191) return limitX(-17   + Math.floor(((y-191)/39)*10));//230-191
-      if (y >= 153) return limitX(-28   + Math.floor(((y-153)/38)*10));//191-153
-      if (y >= 115) return limitX(-36   + Math.floor(((y-115)/38)*10));//153-115
-      if (y >= 76)  return limitX(-46   + Math.floor(((y-76)/39)*10));//115-76
-      if (y >= 42)  return limitX(-56   + Math.floor(((y-42)/34)*10));//76-42
-      if (y < 42)    return limitX(-68   + Math.floor(((y-7)/35)*10));//42-7
+    
+    
+    //This provides the 
+    // ^
+    // |
+    // |
+    // v 
+    // on the (landscape) phone (vertical)
+    const deltaX = (x,y)=>{ 
+
+      console.log("xdeltas for", y + " is ");
+      if (y >  346) console.log(xdeltas[0]);
+      else if (y >= 309) console.log(xdeltas[1]);
+      else if (y >= 269) console.log(xdeltas[2]);
+      else if (y >= 230) console.log(xdeltas[3]);
+      else if (y >= 191) console.log(xdeltas[4]);
+      else if (y >= 153) console.log(xdeltas[5]);
+      else if (y >= 115) console.log(xdeltas[6]);
+      else if (y >= 76)  console.log(xdeltas[7]);
+      else if (y >= 42)  console.log(xdeltas[8]);
+      else if (y < 42)   console.log(xdeltas[9]);
+
+      if (y >  346) return xdeltas[0] + 21;
+      if (y >= 309) return limitX(xdeltas[1] + Math.floor(((y-309)/37)*10)); //346-309
+      if (y >= 269) return limitX(xdeltas[2] + Math.floor(((y-269)/40)*10)); //309-269
+      if (y >= 230) return limitX(xdeltas[3] + Math.floor(((y-230)/39)*10));//269-230
+      if (y >= 191) return limitX(xdeltas[4] + Math.floor(((y-191)/39)*10));//230-191
+      if (y >= 153) return limitX(xdeltas[5] + Math.floor(((y-153)/38)*10));//191-153
+      if (y >= 115) return limitX(xdeltas[6] + Math.floor(((y-115)/38)*10));//153-115
+      if (y >= 76)  return limitX(xdeltas[7] + Math.floor(((y-76)/39)*10));//115-76
+      if (y >= 42)  return limitX(xdeltas[8] + Math.floor(((y-42)/34)*10));//76-42
+      if (y < 42)   return limitX(xdeltas[9] + Math.floor(((y-7)/35)*10));//42-7
     }
 
   
+  useEffect(()=>{
+    console.log("xdeltas", xdeltas);
+    console.log("ydeltas", ydeltas);
+  },[xdeltas, ydeltas]);
 
   useEffect(()=>{
   
@@ -123,8 +167,7 @@ const  App = ()=>{
     
       const px = e.clientX;
       const py = e.clientY;  
-      console.log(px,py, "=>",deltaX(px, py), deltaY(px,py));
-      console.log("looking up", mode);
+     
       switch (mode){
         case TAP:
           console.log("calling tap");
@@ -168,6 +211,14 @@ const  App = ()=>{
   },[mode]);
 
  
+  const adjusthorizontal = (x,y,direction)=>{
+    console.log("adjusting horizontal", x, y, direction)
+  }
+
+  const adjustvertical = (x,y, direction)=>{
+    console.log("adjusting vertical", x, y, direction)
+  }
+
   const swipeup = ({x:dx,y:dy,speed=20000})=>{
     const query = dx && dy ? {dx, dy, speed} : {speed};
     return new Promise((resolve, reject)=>{
@@ -549,9 +600,9 @@ const  App = ()=>{
                     const py = Math.floor(y + (height / 2));
                     //open the app
                    
-                    if (category=="mic"){
-                      await tapandsay(deltaX(px,py), deltaY(px,py), "what app");
-                    }
+                    //if (category=="mic"){
+                    //  await tapandsay(deltaX(px,py), deltaY(px,py), "what app");
+                    //}
                     if (category=="back"){
                       await tap(deltaX(px,py), deltaY(px,py));
                     }
@@ -692,7 +743,120 @@ const  App = ()=>{
     await picture();
   }
 
-  
+ 
+  const xIndexFor= (y)=>{
+    if (y >  346) return 0;
+    else if (y >= 309) return 1
+    else if (y >= 269) return 2
+    else if (y >= 230) return 3
+    else if (y >= 191) return 4
+    else if (y >= 153) return 5
+    else if (y >= 115) return 6
+    else if (y >= 76) return 7
+    else if (y >= 42) return 8
+    else if (y < 42)   return 9
+  } 
+
+  const yIndexFor = (x)=>{
+    if (x <= 13)  return 0;
+    else if (x <= 43)  return 1;
+    else if (x <= 78) return 2;
+    else if (x <= 116) return 3;
+    else if (x <= 154) return 4;
+    else if (x <= 192)return 5;
+    else if (x <= 235) return 6;
+    else if (x <= 276) return 7;
+    else if (x <= 319) return 8;
+    else if (x <= 361) return 9;
+    else if (x <= 404) return 10;
+    else if (x <= 445) return 11;
+    else if (x <= 483) return 12;
+    else if (x <= 521) return 13;
+    else if (x <= 557) return 14;
+    else if (x <= 591) return 15;
+    else if (x <= 624) return 16;
+    else if (x > 624) return 17;
+  }
+
+  const calibrateInput = (x,y, h, v)=>{
+    
+    tap(deltaX(x,y), deltaY(x,y))
+    setV(v);
+    setH(h);
+    setVadjust(0)
+    setHadjust(0)
+  }
+
+  const renderCircles = ()=>{
+     
+        return xs.map((x,_h)=>{
+          return ys.map((y,_v)=>{
+            const selected = h==_h&&v==_v;
+            return <g>
+                      <circle onClick={(e)=> calibrateInput(x,y,_h,_v)} cx={x} cy={y} r={4} style={{fill: selected ? "red":"white", stroke:"black"}}/>
+                      {selected && renderAdjuster(x,y)}
+                    </g>
+          })
+        });
+  }   
+
+  const calibrate = ()=>{
+    console.log("before calibration x deltas", xdeltas)
+     
+    const _xdeltas = xdeltas.map((value, index)=>{
+      if (v==index){
+        return Number(value)+Number(hadjust);
+      }
+      return value;
+    });
+    console.log("AFTER calibration x deltas", _xdeltas)
+    setXdeltas(_xdeltas);
+
+    console.log("before calibration y deltas", ydeltas)
+    const _ydeltas = ydeltas.map((value, index)=>{
+      if (h==index){
+        return Number(value)+Number(vadjust);
+      }
+      return value;
+    });
+
+    setYdeltas(_ydeltas);
+
+   
+  }
+
+  const renderAdjuster = (x,y)=>{
+
+    return <g>
+              <line onClick={()=>_setVadjust(vadjust-1)} x1={x-8} x2={x-18} y1={y} y2={y} style={{stroke:"black", strokeWidth:3}}/> 
+              <line onClick={()=>_setVadjust(vadjust-1)} x1={x-18} x2={x-12} y1={y} y2={y-5} style={{stroke:"black", strokeWidth:2}}/> 
+              <line onClick={()=>_setVadjust(vadjust-1)} x1={x-18} x2={x-12} y1={y} y2={y+5} style={{stroke:"black", strokeWidth:2}}/> 
+
+              <line onClick={()=>_setVadjust(vadjust+1)} x1={x+8} x2={x+18} y1={y} y2={y} style={{stroke:"black", strokeWidth:3}}/> 
+              <line onClick={()=>_setVadjust(vadjust+1)} x1={x+18} x2={x+12} y1={y} y2={y-5} style={{stroke:"black", strokeWidth:2}}/> 
+              <line onClick={()=>_setVadjust(vadjust+1)} x1={x+18} x2={x+12} y1={y} y2={y+5} style={{stroke:"black", strokeWidth:2}}/> 
+
+              <line onClick={()=>_setHadjust(hadjust-1)} x1={x} x2={x} y1={y-8} y2={y-18} style={{stroke:"black", strokeWidth:3}}/> 
+              <line onClick={()=>_setHadjust(hadjust-1)} x1={x} x2={x-5} y1={y-18} y2={y-12} style={{stroke:"black", strokeWidth:2}}/> 
+              <line onClick={()=>_setHadjust(hadjust-1)} x1={x} x2={x+5} y1={y-18} y2={y-12} style={{stroke:"black", strokeWidth:2}}/> 
+
+              <line onClick={()=>_setHadjust(hadjust+1)} x1={x} x2={x} y1={y+8} y2={y+18} style={{stroke:"black", strokeWidth:3}}/> 
+              <line onClick={()=>_setHadjust(hadjust+1)} x1={x} x2={x-5} y1={y+18} y2={y+12} style={{stroke:"black", strokeWidth:2}}/> 
+              <line onClick={()=>_setHadjust(hadjust+1)} x1={x} x2={x+5} y1={y+18} y2={y+12} style={{stroke:"black", strokeWidth:2}}/> 
+            </g>
+
+    /*return <div>
+              <label>
+                Adjust vertical:
+                  <input type="text" name="x" value={hadjust} onChange={(e)=>_setHadjust(e.target.value)} />
+              </label>
+              <label>
+                Adjust horizontal:
+                  <input type="text" name="y" value={vadjust} onChange={(e)=>_setVadjust(e.target.value)} />
+              </label>
+              <button onClick={calibrate}>ADJUST</button>
+            </div>*/
+  }
 
   return (<div>
       <div> 
@@ -706,8 +870,20 @@ const  App = ()=>{
             />
           <canvas ref={canvasRef} id="canvas" width="640" height="360" style={{display:"none"}} />
       </div>
+      <div style={{background: "rgba(255,255,255, 0.5)", position:"absolute", top:0, left:0, width:640, height:360}}>
+                <svg width="640" height="360">
+                  <g>
+                     {renderCircles()}
+                  </g>
 
+                </svg>
+      </div>
+      
+      <div>{`h adjust: ${vadjust}`}</div>
+      <div>{`v adjust: ${hadjust}`}</div>
       <div>{mode}</div>
+
+       
       <button onClick={snapandpredict}>predict</button>
       <button onClick={snap}>snap</button>
       <button onClick={boundscheck}>boundscheck</button>
