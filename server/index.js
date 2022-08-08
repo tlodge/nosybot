@@ -6,8 +6,9 @@ import * as tf from '@tensorflow/tfjs-node'
 import fs from 'fs'
 import request  from 'superagent'
 import cocoSsd from '@tensorflow-models/coco-ssd';
-import {deltaX, deltaY, translateBounds} from './utils/coords.js';
+import {translateBounds} from './utils/coords.js';
 import { waitForDebugger } from 'inspector'
+import {readJSON, writeJSON} from './utils/config.js';
 
 const app = express();
 app.use(bodyParser.json({limit:'25mb'}))
@@ -178,6 +179,28 @@ app.get('/', (req,res)=>{
     res.send("ROBOT DATA CAPTURER")
 });
 
+app.get('/calibration', async (req, res)=>{
+    try{    
+        const xdeltas = await readJSON("public/config/xdeltas.json");
+        const ydeltas = await readJSON("public/config/ydeltas.json");
+        res.send({xdeltas,ydeltas});
+    }catch(err){
+        res.send({xdeltas:[],ydeltas:[]})
+    }
+});
+
+app.post('/setcalibration', async (req, res)=>{
+    const {xdeltas,ydeltas} = req.body;
+
+    try{    
+        await writeJSON("public/config/xdeltas.json", xdeltas);
+        await writeJSON("public/config/ydeltas.json", ydeltas);
+        res.send({sucess:true});
+    }catch(err){
+        res.send({success:false, err})
+    }
+});
+
 app.get('/test', async (req, res)=>{
    
     const coords = [];
@@ -234,30 +257,6 @@ app.get('/say', async (req, res)=>{
     await say(words);
     res.send({success:true});
 })
-
-app.get('/tapback', async(req, res)=>{
-    const {x,y,w,h} = { x: 18, y: 39, w: 577, h: 292 };
-   
-    const dx = deltaX(x,y+h);
-    const dy = deltaY(x,y+h);
-   
-    if (w>0 && h > 0){
-        await print(["G90", `G1 X${dx-8} Y${dy+16} Z20 F20000`,`G0 Z9 F20000`, `G4 P100`, `G0 Z20 F20000`]);
-    }
-    res.send({command:"press", complete:true});
-});
-
-app.get('/pressmiddle', async(req, res)=>{
-    const {x,y,w,h} = BOUNDS;
-   
-    const dx = deltaX((x+w)/2,(y+h)/2);
-    const dy = deltaY((x+w)/2,(y+h)/2);
-    
-    if (w>0 && h > 0){
-        await print(["G90", `G1 X${dx+10} Y${dy} Z20 F20000`,`G0 Z9 F20000`, `G4 P10`, `G0 Z20 F20000`]);
-    }
-    res.send({command:"press", complete:true});
-});
 
 app.post('/bounds', async (req, res)=>{
    
@@ -329,7 +328,7 @@ app.get('/doubletap', async (req, res)=>{
 app.get('/tap', async (req, res)=>{
     const {x,y} = req.query;
     //console.log("tapping", x, y);
-    await print(["G90", `G1 X${x} Y${y} Z15 F20000`,`G0 Z10 F30000`,`G0 Z14 F30000`]);
+    await print(["G90", `G1 X${x} Y${y} Z15 F20000`,`G0 Z10 F30000`,`G0 Z20 F30000`]);
     res.send({command:"tap", complete:true});
 });
 
@@ -356,12 +355,11 @@ app.get('/swipeup', async (req, res)=>{
 
 app.get('/swipedown', async (req, res)=>{
     const {dx:x,dy:y, speed=20000} = req.query; 
-    const {minX, minY, maxX, maxY} = translateBounds(BOUNDS);  
-    //console.log("swipe down", x, y);
-   // console.log("bounds minx ", minX, " miny ", minY, "maxX", maxX, "maxY", maxY);
-    //console.log(`SWIPE DOWN GOING FROM ${x},${y}=>${x},${Math.min(Number(y)+20, maxY)}`);
-    //await print(["G90", `G1 X${x} Y${Math.max(y-50,minY)} Z20 F20000`,`G0 Z9 F20000`, `G1 X${x} Y${Math.min(y, maxY)} Z9 F20000`, `G0 Z20 F20000`]);
-    await print(["G90", `G1 X${x} Y${y} Z20 F20000`,`G0 Z9 F20000`, `G1 X${x} Y${Math.min(Number(y)+40, maxY)} Z9 F20000`, `G0 Z20 F20000`]);
+    
+    //const {minX, minY, maxX, maxY} = translateBounds(BOUNDS);  
+    //await print(["G90", `G1 X${x} Y${y} Z20 F20000`,`G0 Z9 F20000`, `G1 X${x} Y${Math.min(Number(y)+40, maxY)} Z9 F20000`, `G0 Z20 F20000`]);
+    await print(["G90", `G1 X${x} Y${y} Z20 F20000`,`G0 Z9 F20000`, `G1 X${x} Y${Number(y)+40} Z9 F20000`, `G0 Z20 F20000`]);
+    
     
     res.send({command:"swipedown", complete:true});
 });
@@ -370,24 +368,19 @@ app.get('/swipedown', async (req, res)=>{
 
 app.get('/swipeleft', async (req, res)=>{
     const {dx:x,dy:y, speed=20000} = req.query;
-    const {minX, minY, maxX, maxY} = translateBounds(BOUNDS);    
-    //console.log("swipe left", x, y);
-   // console.log(`SWIPE LEFT GOING FROM ${x-40},${y}=>${x},${y}`);
-    //console.log("BOUNDS", BOUNDS);
-    //console.log("bounds minx ", minX, " miny ", minY, "maxX", maxX, "maxY", maxY);
-    await print(["G90", `G1 X${Math.max(x, minX)} Y${y} Z20 F20000`,`G0 Z9 F20000`, `G1 X${Math.min(Number(x)+40,maxX)} Y${y} Z9 F20000`, `G0 Z20 F20000`]);
+    //const {minX, minY, maxX, maxY} = translateBounds(BOUNDS);    
+    //await print(["G90", `G1 X${Math.max(x, minX)} Y${y} Z20 F20000`,`G0 Z9 F20000`, `G1 X${Math.min(Number(x)+40,maxX)} Y${y} Z9 F20000`, `G0 Z20 F20000`]);
+    await print(["G90", `G1 X${x} Y${y} Z20 F20000`,`G0 Z9 F20000`, `G1 X${Number(x)+40} Y${y} Z9 F20000`, `G0 Z20 F20000`]);
     
     res.send({command:"press", complete:true});
 });
 
 app.get('/swiperight', async (req, res)=>{
     const {dx:x,dy:y, speed=20000} = req.query;
-    const {minX, minY, maxX, maxY} = translateBounds(BOUNDS); 
-    //console.log("swipe right", x, y);
-    //console.log("BOUNDS", BOUNDS);
-    //console.log(`SWIPE RIGHT GOING FROM ${x},${y}=>${x-40},${y}`);
-    //console.log("bounds minx ", minX, " miny ", minY, "maxX", maxX, "maxY", maxY);
-    await print(["G90", `G1 X${Math.min(Number(x),maxX)} Y${y} Z20 F20000`,`G0 Z9 F20000`, `G1 X${Math.max(Number(x-40), minX)} Y${y} Z9 F20000`, `G0 Z20 F20000`]);
+    //const {minX, minY, maxX, maxY} = translateBounds(BOUNDS); 
+    //await print(["G90", `G1 X${Math.min(Number(x),maxX)} Y${y} Z20 F20000`,`G0 Z9 F20000`, `G1 X${Math.max(Number(x-40), minX)} Y${y} Z9 F20000`, `G0 Z20 F20000`]);
+    await print(["G90", `G1 X${Number(x)} Y${y} Z20 F20000`,`G0 Z9 F20000`, `G1 X${Number(x-40)} Y${y} Z9 F20000`, `G0 Z20 F20000`]);
+  
     res.send({command:"press", complete:true});
 });
 

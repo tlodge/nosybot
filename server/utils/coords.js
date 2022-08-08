@@ -1,4 +1,12 @@
- const limitY = (y)=>{
+ let xdeltas;
+ let ydeltas;
+
+  const init = async ()=>{
+     xdeltas = await readJSON("public/config/xdeltas.json");
+     ydeltas = await readJSON("public/config/ydeltas.json");
+  }
+
+  const limitY = (y)=>{
     const MAX = -90;
     return Math.max(MAX,y);
   }
