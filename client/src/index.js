@@ -42,6 +42,8 @@ const  App = ()=>{
   const videoRef = createRef();
   const canvasRef = createRef();
   const canvasGLRef = createRef();
+  const predictions = useRef([]);
+
   const [video, isCameraInitialised, playing, setPlaying, error] = useCamera(videoRef);
   const [mode, _setMode] = useState(TAP)
  
@@ -54,7 +56,7 @@ const  App = ()=>{
   const [hadjust, setHadjust] = useState(0);
   const [vadjust, setVadjust] = useState(0);
 
-  const [predictions, setPredictions] = useState([]);
+  //const [predictions, setPredictions] = useState([]);
   const [v, setV] = useState();
   const [h, setH] = useState();
 
@@ -63,6 +65,11 @@ const  App = ()=>{
   const setXdeltas = (_xdeltas)=>{
     xdeltasRef.current = _xdeltas;
     _setXdeltas(_xdeltas);
+  }
+
+  const setPredictions = (_predictions=[])=>{ 
+    predictions.current = [..._predictions];
+    console.log("set predictions to", predictions.current);
   }
 
   const setYdeltas = (_ydeltas)=>{
@@ -323,7 +330,7 @@ const  App = ()=>{
   }
   
   const swipedown = ({x:dx,y:dy, speed=20000})=>{
-    console.log("in swipe down!!")
+    
     const query = dx && dy ? {dx, dy, speed} : {speed};
     return new Promise((resolve, reject)=>{
       request.get('/swipedown')
@@ -610,25 +617,25 @@ const  App = ()=>{
   }
 
   const say = async (words)=>{
-    console.log("saying", words);
+   
     await request
      		.get('/say')
         .query({words})
   }
 
   
-  const requestBounds = async(dataURL)=>{
-    console.log("requesting bounds!");
+  const requestBounds = (dataURL)=>{
+   
     return new Promise((resolve, reject)=>{
       request
       .post('/bounds')
       .set('content-Type', 'application/json')
       .send({image:dataURL})
-      .end(async function(err, res){
+      .end(function(err, res){
         if (err){
           console.log(err);
         }else{
-          console.log("set bounds to", res.body.bounds);
+          
           BOUNDS = res.body.bounds;
           resolve(res.body.bounds);
         }
@@ -661,12 +668,16 @@ const  App = ()=>{
   }
 
   const predict =  ()=>{
+    
     return new Promise((resolve, reject)=>{
       setTimeout(async ()=>{
+     
         const dataURL = distorter.getImage("image/jpeg");
+       
         let _bounds = BOUNDS;
         if (!_bounds){
           _bounds = await requestBounds(dataURL);
+         
         }
         request
           .post('/predict')
@@ -677,13 +688,15 @@ const  App = ()=>{
                 console.log(err);
               }else{
                 let i = 0;
-                console.log("Bounds", _bounds);
+               
                 const {x:_x,y:_y,w:_w,h:_h} = adjustforborders(_bounds);
+                console.log("setting predictions to", res.body.predictions);
                 setPredictions(res.body.predictions)
+                
                 for (let prediction of res.body.predictions || []){
                   const {x,y,width,class:category,height} = prediction;
                   
-                  if (["iphotos"].indexOf(category) !== -1){
+                  if (["iphotos", "back"].indexOf(category) !== -1){
                     //await say(`looking at ${category}`);
                     const px = Math.floor(x + (width / 2));
                     const py = Math.floor(y + (height / 2));
@@ -699,6 +712,8 @@ const  App = ()=>{
 
                     if (category === "iphotos"){
                       await tap(deltaX(px,py), deltaY(px,py));
+                      await home();
+                      setTimeout(async ()=>await snapandpredict(),2000);
                       //await iphoto({x:_x,y:_y,w:_w,h:_h});
                     }
                     if (category === "contacts"){
@@ -822,11 +837,15 @@ const  App = ()=>{
     await swipeup({speed:5000});
     await picture();
     await waitfor(2000);*/
+    console.log("1 canvasref current", canvasRef.current)
     snap();
+    console.log("2 canvasref current", canvasRef.current)
     await predict();
+    console.log("3 canvasref current", canvasRef.current)
 
     //end
     await picture();
+    console.log("4 canvasref current", canvasRef.current)
   }
 
   const home = async()=>{
@@ -880,6 +899,20 @@ const  App = ()=>{
     setHadjust(0)
   }
 
+  const renderPredictions = ()=>{
+    console.log("predictions are", predictions.current);
+    const boxes = predictions.current.map((prediction)=>{
+      const {x,y,width, height} = prediction;
+      const px = Math.floor(x + (width / 2));
+      const py = Math.floor(y + (height / 2));
+      return <g>
+        <rect x={x} y={y} width={width} height={height} style={{stroke: "red", fill:"transparent"}}/>
+        <circle  cx={px} cy={py} r={4} style={{fill: "transparent", stroke:"red"}}/>
+      </g>
+    });
+    return <g>{boxes}</g>
+  }
+
   const renderCircles = ()=>{
      
         const grid = xs.map((x,_h)=>{
@@ -892,7 +925,7 @@ const  App = ()=>{
           })
         });
 
-        const boxes = predictions.map((prediction)=>{
+        const boxes = predictions.current.map((prediction)=>{
           const {x,y,width, height} = prediction;
           const px = Math.floor(x + (width / 2));
           const py = Math.floor(y + (height / 2));
@@ -934,6 +967,32 @@ const  App = ()=>{
     setYdeltas(_ydeltas);
 
    
+  }
+
+  const waitForPhone = ()=>{
+
+    const sample = ()=>{
+      const c = canvasRef.current;
+      const ctx = c.getContext("2d");
+      ctx.drawImage(video, 0, 0, 640, 360);
+      let blues = 0;
+      for (let x = 0; x < 640; x+=10){
+        for(let y = 0; y < 360; y+=10){
+          var pixelData = ctx.getImageData(x, y, 1, 1).data; 
+          const [r, g , b] = pixelData;
+          if (g >= 100 && b >=200){
+            blues += 1;
+          }
+        }
+      }
+      console.log(blues);
+      if (blues < 1000){
+        setTimeout(snapandpredict, 500);
+      }else{
+        setTimeout(sample, 1000)
+      }
+    }
+    sample();
   }
 
   const renderAdjuster = (x,y)=>{
@@ -989,10 +1048,20 @@ const  App = ()=>{
 
                 </svg>
       </div>}
+      { <div style={{background: "rgba(255,255,255, 0.5)", position:"absolute", top:0, left:0, width:640, height:360}}>
+                <svg width="640" height="360">
+                  <g>
+                     {renderPredictions()}
+                  </g>
+
+                </svg>
+            </div>}
       
       <div>{`h adjust: ${vadjust}`}</div>
       <div>{`v adjust: ${hadjust}`}</div>
       <div>{mode}</div>
+
+      <button onClick={waitForPhone}>wait for phone</button>
       <button onClick={toggleCalibration}>toggle calibration</button>
       <button onClick={saveCalibration}>save calibration</button>
 
